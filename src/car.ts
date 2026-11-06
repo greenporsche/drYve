@@ -71,6 +71,17 @@ const ABS = CAR.abs;
 const ABS_SLIP = SLIP_PEAK;
 const ABS_MIN_SPEED = ABS_SLIP * SLIP_V_MIN; // m/s (~0.35, about 1.3 km/h)
 const MAX_STEER = CAR.maxSteer; // rad, physical steering lock
+// Off the asphalt (S1.14, PO #20882, EM #20884/#20885/#21260): one off-road class for every wheel whose
+// contact is on the ribbon's shoulder triangles or on the surrounding ground (kerbs keep road treatment).
+// Its tyre curve and its whole (combined) grip budget are scaled by OFF_GRIP: declared assumption, grass
+// friction about 0.55 against the road's 1.8. OFF_ROLL is a rolling-loss torque (x load x radius) that
+// opposes the wheel's spin inside the implicit solve, beside the brake torque; it is not driver braking.
+// Its coefficient rises with rolling speed, from OFF_ROLL_REST (low enough that the driven rears, on
+// grass grip, can still pull the car away from rest) to OFF_ROLL at OFF_ROLL_SPEED and above; tuned from
+// matched coasts (S1.14 first driving proof). Flat out on grass the car settles near 120 km/h.
+const OFF_GRIP = 0.3;
+const OFF_ROLL_REST = 0.08, OFF_ROLL = 0.35, OFF_ROLL_SPEED = 150 / 3.6; // m/s
+const offRoll = (v: number) => OFF_ROLL_REST + (OFF_ROLL - OFF_ROLL_REST) * Math.min(1, Math.abs(v) / OFF_ROLL_SPEED);
 const WHEELBASE = 3.3; // m, front to rear axle
 // Steering lock shrinks with speed so a full keyboard press asks for about this much
 // cornering (m/s^2): roughly what a downforce car can hold, so a held key turns hard
@@ -101,6 +112,11 @@ export class Car {
   private snapVisuals = true;
   resets = 0;
   kerbHandle = -1; // collider handle of the kerbs, set by main.ts
+  // The ribbon collider (road plus shoulders) and a test for whether a point on it is on the road, between
+  // the road edges (set by DrivingWorld).
+  ribbonHandle = -1;
+  roadAt: ((x: number, z: number) => boolean) | null = null;
+  wheelsOffRoad = 0; // wheels on the off-road class at the last step
   wheelsOnKerb = 0; // how many wheels touched a kerb at the last step (for sound and display)
   odometer = 0; // metres driven, for the kerb ridge rate (physics and sound)
   private settleSteps = 0;
@@ -111,7 +127,7 @@ export class Car {
   // Per-wheel state (FL, FR, RL, RR): spin rate (rad/s), rotation angle, longitudinal slip, the tyre
   // force asked of Rapier and the share of it Rapier delivered at the last step (its friction clamp).
   // balance: the last step's angular-momentum residual, I dw - ((Td - Tb) dt - R J_delivered) (should be ~0).
-  readonly tyre = WHEELS.map(() => ({ omega: 0, angle: 0, slip: 0, slide: 0, fz: 0, fx: 0, fxSolve: 0, delivered: 0, torque: 0, balance: 0, vc: 0, den: SLIP_V_MIN, vLat: 0, sliding: 0, sideStiffness: 1, sideImpulse: 0, mEff: M_EFF_DEFAULT, combinedSlide: 0, mEffUpdated: false, absActive: false, brakeRequested: 0, brakeApplied: 0 }));
+  readonly tyre = WHEELS.map(() => ({ omega: 0, angle: 0, slip: 0, slide: 0, fz: 0, fx: 0, fxSolve: 0, delivered: 0, torque: 0, balance: 0, vc: 0, den: SLIP_V_MIN, vLat: 0, sliding: 0, sideStiffness: 1, sideImpulse: 0, mEff: M_EFF_DEFAULT, combinedSlide: 0, mEffUpdated: false, absActive: false, brakeRequested: 0, brakeApplied: 0, offroad: false, grip: 1, rollTorque: 0 }));
   // G-meter (sampled once per fixed step from the true physics velocity, in the car's frame): what the
   // driver feels, acceleration minus gravity. `g` is the sustained load (smoothed over ~0.1 s, the
   // corner/braking reading); `gRaw` the per-step value, where brief kerb and bump spikes show.
@@ -353,7 +369,7 @@ export class Car {
       // forward impulse than was sent, or the wheel is at its combined limit, the side impulse is a
       // clamped value, not the constraint's response; keep the last reliable estimate.
       const sent = t.fx * dt, clampedFwd = Math.abs(j - sent) > 0.1 * Math.max(Math.abs(sent), 0.5);
-      const atLimit = TYRE_BUDGET !== null && Math.hypot(j, t.sideImpulse) >= 0.97 * TYRE_BUDGET * t.fz * dt;
+      const atLimit = TYRE_BUDGET !== null && Math.hypot(j, t.sideImpulse) >= 0.97 * TYRE_BUDGET * t.grip * t.fz * dt;
       t.mEffUpdated = t.sideStiffness > 0.05 && Math.abs(t.vLat) > 0.2 && t.fz > 0 && (TYRE_BUDGET === null || (!clampedFwd && !atLimit));
       if (t.mEffUpdated) {
         const m = Math.abs(t.sideImpulse) / (t.sideStiffness * Math.abs(t.vLat));
@@ -396,17 +412,22 @@ export class Car {
       } else vc = t.omega * WHEEL_RADIUS; // in the air: no slip
       t.vLat = vLat;
       t.fz = inContact ? Math.max(0, this.vehicle.wheelSuspensionForce(i) ?? 0) : 0;
+      t.offroad = !!inContact && this.isOffRoad(i, contact);
+      const grip = (t.grip = t.offroad ? OFF_GRIP : 1);
+      const N = t.fz * grip; // the load the tyre curve and budget act on (grip-scaled off the road)
       const den = Math.max(Math.abs(vc), SLIP_V_MIN);
       const revLimit = (Math.abs(vc) / WHEEL_RADIUS) * REV_HEADROOM + REV_BASE;
       const drive = w.front ? 0 : engine * WHEEL_RADIUS * THREE.MathUtils.clamp((revLimit - Math.abs(t.omega)) / REV_FADE, 0, 1); // N m
-      const brakeT = brake * (w.front ? BRAKE_FRONT : BRAKE_REAR) * WHEEL_RADIUS; // N m, opposes spin
+      const pedalT = brake * (w.front ? BRAKE_FRONT : BRAKE_REAR) * WHEEL_RADIUS; // N m, opposes spin
+      const rollT = (t.rollTorque = t.offroad ? offRoll(vc) * t.fz * WHEEL_RADIUS : 0); // off-road rolling loss, opposes spin
+      const brakeT = pedalT + rollT;
       // ABS (S1.15, EM #21104): on a loaded wheel with the road moving forward under it faster than
       // ABS_MIN_SPEED, the brake torque is cut to what this step's implicit solve needs to leave the wheel
       // at the slip peak (spin (vc - ABS_SLIP den) / R), from the same linearised equation as the solve. It
       // only ever lowers the requested torque (down to zero), whichever driver asked for it, and it acts on
       // a wheel that has stopped (locked) too, so the road can spin it back up. Standstill, reverse and
       // Simulation keep the plain pedal torque.
-      const absOn = ABS && brakeT > 0 && !!inContact && t.fz > 50 && vc > ABS_MIN_SPEED && t.omega >= 0;
+      const absOn = ABS && pedalT > 0 && !!inContact && t.fz > 50 && vc > ABS_MIN_SPEED && t.omega >= 0;
       // Implicit step for the spin rate, with the tyre force linearised around the current slip
       // (stable at 120 Hz even near standstill, where the tyre is very stiff relative to the wheel).
       this.prevOmega[i] = t.omega;
@@ -418,17 +439,17 @@ export class Car {
       // held at zero (locked) as long as the brake can hold it there against the drive and the road.
       const solveStep = (om: number, h: number) => {
         const k0 = (om * R - vc) / den;
-        const f0 = t.fz * muX(k0), df = Math.max(0, (t.fz * muXSlope(k0) * R) / den);
+        const f0 = N * muX(k0), df = Math.max(0, (N * muXSlope(k0) * R) / den);
         const stiff = 1 + (h * df * R) / I;
         const spinWith = (brakeSigned: number) => om + (h * (drive + brakeSigned - f0 * R)) / I / stiff;
-        const brakeLim = absOn ? THREE.MathUtils.clamp(drive - f0 * R - (((vc - ABS_SLIP * den) / R - om) * I * stiff) / h, 0, brakeT) : brakeT;
+        const brakeLim = absOn ? THREE.MathUtils.clamp(drive - f0 * R - (((vc - ABS_SLIP * den) / R - om) * I * stiff) / h, rollT, brakeT) : brakeT; // ABS lowers the pedal share only
         const dir = om > 1e-6 ? 1 : om < -1e-6 ? -1 : 0;
         let omega: number, brakeUsed: number;
         const rolling = dir !== 0 ? spinWith(-dir * brakeLim) : 0;
         if (dir !== 0 && Math.sign(rolling) === dir) (omega = rolling), (brakeUsed = -dir * brakeLim);
         else {
           // Try holding the wheel at zero: the brake torque that needs, with the road force of a locked tyre.
-          const fLock = t.fz * muX(-vc / den);
+          const fLock = N * muX(-vc / den);
           const hold = (-I * om) / h - drive + fLock * R;
           if (Math.abs(hold) <= brakeLim) (omega = 0), (brakeUsed = hold);
           else {
@@ -452,11 +473,11 @@ export class Car {
         t.fxSolve = first.fRoad;
       } else {
         let om = first.omega, impulse = first.fRoad, braking = first.brakeUsed;
-        fLo = Math.min(first.f0, t.fz * muX((om * R - vc) / den)), fHi = Math.max(first.f0, t.fz * muX((om * R - vc) / den));
+        fLo = Math.min(first.f0, N * muX((om * R - vc) / den)), fHi = Math.max(first.f0, N * muX((om * R - vc) / den));
         for (let n = 1; n < SUBSTEPS; n++) {
           const sub = solveStep(om, dt / SUBSTEPS);
           om = sub.omega, impulse += sub.fRoad, braking += sub.brakeUsed;
-          const fEnd = t.fz * muX((om * R - vc) / den);
+          const fEnd = N * muX((om * R - vc) / den);
           fLo = Math.min(fLo, sub.f0, fEnd), fHi = Math.max(fHi, sub.f0, fEnd);
         }
         (omega = om), (brakeUsed = braking / SUBSTEPS);
@@ -464,8 +485,8 @@ export class Car {
       }
       t.torque = drive + brakeUsed;
       t.absActive = absOn && first.brakeLim < brakeT;
-      t.brakeRequested = brakeT;
-      t.brakeApplied = Math.abs(brakeUsed);
+      t.brakeRequested = pedalT; // driver braking only; the rolling loss is published as rollTorque
+      t.brakeApplied = Math.max(0, Math.abs(brakeUsed) - rollT);
       t.omega = omega;
       t.vc = vc; // rolling speed and slip denominator for this step, reused after reconciliation
       t.den = den;
@@ -475,7 +496,7 @@ export class Car {
       // values over the step: when a wheel spins up or down fast the linearised force can overshoot
       // past the curve (even pushing the wrong way). Same-step reconciliation below then gives the
       // wheel the impulse actually applied.
-      const f1 = t.fz * muX(t.slip);
+      const f1 = N * muX(t.slip);
       t.fx = THREE.MathUtils.clamp(t.fxSolve, Math.min(fLo, f1), Math.max(fHi, f1));
       // Sliding (blending in from the slip peak to twice it): one friction force of sliding size
       // against the patch's sliding velocity. Its lengthwise part goes to Rapier as the wheel's engine
@@ -505,7 +526,7 @@ export class Car {
       // (Accessible's explicit wheelspin approximation; Simulation uses the sliding law below instead.)
       if (t.slip > 0 && TYRE_BUDGET === null) sideStiffness = 1 - (1 - SIDE_GRIP_SPINNING) * THREE.MathUtils.clamp((t.slip - SLIP_PEAK) / (3 * SLIP_PEAK), 0, 1);
       if (b > 0) {
-        const fTotal = t.fz * Math.abs(muX(TYRE_BUDGET !== null ? combined : vS / den));
+        const fTotal = N * Math.abs(muX(TYRE_BUDGET !== null ? combined : vS / den));
         fxSend = (1 - b) * t.fx + b * fTotal * (sLong / vS);
         const latWanted = fTotal * (Math.abs(vLat) / vS) * dt; // N s this step
         const latCancel = t.mEff * Math.abs(vLat); // N s Rapier's constraint would apply at full stiffness
@@ -518,13 +539,25 @@ export class Car {
       // mu^2 - 0.75 (Fx/Fz)^2 that becomes Fx^2 + Fy^2 <= (mu Fz)^2, so grip used braking or driving
       // is grip the corner no longer has.
       if (TYRE_BUDGET !== null) {
-        const u = t.fz > 1 ? Math.min(TYRE_BUDGET, Math.abs(t.fx) / t.fz) : 0;
-        this.vehicle.setWheelFrictionSlip(i, Math.sqrt(Math.max(0.01, TYRE_BUDGET * TYRE_BUDGET - 0.75 * u * u)));
-      }
+        const mu = TYRE_BUDGET * grip;
+        const u = t.fz > 1 ? Math.min(mu, Math.abs(t.fx) / t.fz) : 0;
+        this.vehicle.setWheelFrictionSlip(i, Math.sqrt(Math.max(0.01 * grip * grip, mu * mu - 0.75 * u * u)));
+      } else this.vehicle.setWheelFrictionSlip(i, (w.front ? CAR.frictionSlip.front : CAR.frictionSlip.rear) * grip); // caps side grip too
       this.vehicle.setWheelEngineForce(i, t.fx);
       this.vehicle.setWheelBrake(i, 0);
       this.vehicle.setWheelSideFrictionStiffness(i, sideStiffness);
     }
+    this.wheelsOffRoad = this.tyre.filter((t) => t.offroad).length;
+  }
+
+  // Off-road class of a wheel in contact: the separate kerb collider is road; on the ribbon (one collider
+  // for road and shoulders) the contact point's place across the road decides; any other ground (the
+  // surrounding terrain) is off-road.
+  private isOffRoad(i: number, at: { x: number; z: number }) {
+    const handle = this.vehicle.wheelGroundObject(i)?.handle;
+    if (handle === this.kerbHandle) return false;
+    if (handle !== this.ribbonHandle || !this.roadAt) return true;
+    return !this.roadAt(at.x, at.z);
   }
 
   // Suspension compression per wheel: 0 = at rest length, 1 = max travel used up.

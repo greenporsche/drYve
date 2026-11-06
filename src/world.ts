@@ -50,6 +50,11 @@ export class DrivingWorld {
     this.spawn = { pos: pole.pos.add(new THREE.Vector3(0, 1.0, 0)), yaw: pole.yaw };
     this.car = new Car(drawn, this.world, this.spawn, controls);
     this.car.kerbHandle = this.kerbs.handle;
+    // Off-road classification (S1.14): a point on the ribbon is on the road when it lies between the
+    // road-edge columns of the nearest baked cross-section ([shoulder, 5 road columns, shoulder]: the road
+    // edges are columns 1 and 5, the centreline column 3). Searched near the lap tracker's place.
+    this.car.ribbonHandle = this.ribbonMesh.userData.colliderHandle as number;
+    this.car.roadAt = (x, z) => roadAt(track, this.lap?.index ?? 0, x, z);
     this.lap = new LapTracker(track);
     const p = this.car.body.translation();
     this.lap.update(p.x, p.z, 0); // the tracker starts at the car, before any step
@@ -74,6 +79,28 @@ export class DrivingWorld {
   free() {
     this.world.free();
   }
+}
+
+// Whether (x, z) is between the road edges of the ribbon's nearest cross-section, searched within
+// SEARCH sections of `hint` (the lap tracker's index; the car's wheels are within a few metres of it).
+const COLS = 7, SEARCH = 12;
+export function roadAt(track: Track, hint: number, x: number, z: number) {
+  const p = track.positions, n = p.length / 3 / COLS, closed = !!track.centerline.closed;
+  let best = -1, bestD = Infinity;
+  for (let j = -SEARCH; j <= SEARCH; j++) {
+    let k = hint + j;
+    if (closed) k = ((k % n) + n) % n;
+    else if (k < 0 || k >= n) continue;
+    const c = (k * COLS + 3) * 3, d = (p[c] - x) ** 2 + (p[c + 2] - z) ** 2;
+    if (d < bestD) (bestD = d), (best = k);
+  }
+  const at = (col: number) => (best * COLS + col) * 3;
+  const c = at(3), l = at(1), r = at(5);
+  const ux = p[l] - p[r], uz = p[l + 2] - p[r + 2], len = Math.hypot(ux, uz); // across the road, toward the left edge
+  const s = ((x - p[c]) * ux + (z - p[c + 2]) * uz) / len;
+  const left = ((p[l] - p[c]) * ux + (p[l + 2] - p[c + 2]) * uz) / len;
+  const right = ((p[r] - p[c]) * ux + (p[r + 2] - p[c + 2]) * uz) / len;
+  return s <= left && s >= right;
 }
 
 // The circuit's baked reference racing line offsets, when one exists and matches the lap.
