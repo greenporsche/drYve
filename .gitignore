@@ -1,0 +1,21 @@
+# agent / tool config (local only)
+.agents/
+.claude/
+.codex/
+.gemini/
+.lets-all-chat/
+.mcp.json
+CLAUDE.local.md
+worktrees/
+
+# build
+node_modules/
+dist/
+
+# raw source data (large; baked outputs are committed)
+data/raw/
+
+.DS_Store
+
+# docs
+docs/

@@ -1,0 +1,137 @@
+{
+  "id": "spa",
+  "name": "Spa-Francorchamps Grand Prix circuit",
+  "short": "Spa-Francorchamps",
+  "turns": [
+    {
+      "n": 1,
+      "name": "La Source",
+      "in": 594,
+      "out": 650
+    },
+    {
+      "n": 2,
+      "name": "Eau Rouge",
+      "in": 1272,
+      "out": 1302
+    },
+    {
+      "n": 3,
+      "name": "Raidillon",
+      "in": 1342,
+      "out": 1457
+    },
+    {
+      "n": 4,
+      "name": "Raidillon",
+      "in": 1497,
+      "out": 1539
+    },
+    {
+      "n": 5,
+      "name": "Les Combes",
+      "in": 2619,
+      "out": 2693
+    },
+    {
+      "n": 6,
+      "name": "Les Combes",
+      "in": 2699,
+      "out": 2777
+    },
+    {
+      "n": 7,
+      "name": "Malmedy",
+      "in": 2855,
+      "out": 2931
+    },
+    {
+      "n": 8,
+      "name": "Bruxelles",
+      "in": 3213,
+      "out": 3385
+    },
+    {
+      "n": 9,
+      "name": "Jacky Ickx Curve",
+      "in": 3492,
+      "out": 3572
+    },
+    {
+      "n": 10,
+      "name": "Pouhon",
+      "in": 4012,
+      "out": 4136
+    },
+    {
+      "n": 11,
+      "name": "Pouhon",
+      "in": 4190,
+      "out": 4370
+    },
+    {
+      "n": 12,
+      "name": "Fagnes",
+      "in": 4676,
+      "out": 4822
+    },
+    {
+      "n": 13,
+      "name": "Fagnes",
+      "in": 4834,
+      "out": 4960
+    },
+    {
+      "n": 14,
+      "name": "Campus",
+      "in": 5138,
+      "out": 5234
+    },
+    {
+      "n": 15,
+      "name": "Curve Paul Frère",
+      "in": 5340,
+      "out": 5476
+    },
+    {
+      "n": 16,
+      "name": "Blanchimont",
+      "in": 6082,
+      "out": 6164
+    },
+    {
+      "n": 17,
+      "name": "Blanchimont",
+      "in": 6378,
+      "out": 6472
+    },
+    {
+      "n": 18,
+      "name": "Bus Stop",
+      "in": 6952,
+      "out": 7000
+    },
+    {
+      "n": 19,
+      "name": "Bus Stop",
+      "in": 4,
+      "out": 64
+    }
+  ],
+  "controlLine": 225,
+  "startLine": 350,
+  "sectorLines": [
+    225,
+    2474,
+    5292
+  ],
+  "calloutLead": 150,
+  "roadWidth": 12,
+  "trackLimit": 7.2,
+  "notes": [
+    "Stations are metres along the baked lap centerline, measured from the Bus Stop chicane exit in race direction (public/data/spa-lap.json).",
+    "Turn numbers and names: FIA/Formula 1 corner numbering for the Belgian Grand Prix (19 turns). Turn stations: the turn-in and exit of each corner found on the baked centerline by curvature.",
+    "Timing lines: FIA 2024 Belgian GP circuit map. Sector 1 line 145 m before Turn 5, Sector 2 line 48 m before Turn 15 (both measured from our turn-in point). Control (timing/finish) line and the separate start line: EM ruling from the georeferenced SPW 2026 orthophoto (control paint ~225 m, grid-leading start line ~347 m; about +-5 m), consistent with the ~124 m start/finish offset implied by the FIA race distance over 44 laps. Pole is on the right (FIA 2024 pit-lane drawing).",
+    "Road width 12 m and track limit 7.2 m from the centerline (car centre) are assumptions."
+  ]
+}

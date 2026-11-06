@@ -1,0 +1,35 @@
+{
+  "image": "/data/spa-ortho.jpg",
+  "width": 2895,
+  "height": 4096,
+  "metresPerPixel": 0.6494,
+  "source": {
+    "name": "SPW Orthophotos 2023 - Été (ORTHO_2023_ETE)",
+    "service": "https://geoservices.wallonie.be/arcgis/rest/services/IMAGERIE/ORTHO_2023_ETE/MapServer",
+    "catalogue": "https://geoportail.wallonie.be/catalogue/ad55c2ce-62ad-4c3c-b3cf-8fbc270a6b6e.html",
+    "campaignAcquisition": "2023-05-27/2023-06-25",
+    "nativeResolutionM": 0.25,
+    "licence": "CC BY 4.0",
+    "attribution": "Orthophotos 2023 Été © SPW — Service public de Wallonie (CC BY 4.0), resampled to 0.65 m",
+    "crs": "EPSG:3812",
+    "bbox3812": [
+      762718.96,
+      625029.49,
+      764598.96,
+      627689.49
+    ]
+  },
+  "localOrigin": {
+    "crs": "EPSG:3812",
+    "easting": 763508.96,
+    "northing": 626869.49,
+    "height": 408.31
+  },
+  "bounds": {
+    "minX": -790,
+    "maxX": 1090,
+    "minZ": -820,
+    "maxZ": 1840
+  },
+  "uv": "u = (x - minX) / (maxX - minX); v = 1 - (z - minZ) / (maxZ - minZ)"
+}

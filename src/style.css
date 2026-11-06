@@ -1,0 +1,89 @@
+/* Broadcast-inspired HUD: dark slanted panels, condensed caps, timing colours. Our own styling. */
+:root {
+  --panel: rgba(16, 18, 26, 0.82);
+  --panel-edge: rgba(255, 255, 255, 0.08);
+  --text: #fff;
+  --muted: rgba(255, 255, 255, 0.62);
+  --accent: #e10600;
+  --best: #b44ce6; /* fastest sector or lap so far */
+  --slower: #f2c200; /* no improvement */
+  --throttle: #2bd46a;
+  --brake: #ff3b30;
+}
+html, body { margin: 0; height: 100%; overflow: hidden; background: #87a9c9; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--text); }
+canvas { display: block; }
+.panel, #help { position: fixed; pointer-events: none; }
+.panel { background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 4px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* Timing panel, top left */
+#timing { left: 16px; top: 16px; width: 260px; padding: 0 0 8px; overflow: hidden; }
+#timing .row { display: flex; justify-content: space-between; align-items: baseline; padding: 0 12px; }
+#timing .head { background: var(--accent); padding: 6px 12px; font-weight: 800; letter-spacing: 0.04em; font-style: italic; }
+#timing .head #laptime { font-size: 22px; font-style: normal; }
+#timing .sectors { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 8px 8px 6px; }
+.sector { background: rgba(255, 255, 255, 0.07); border-bottom: 3px solid transparent; padding: 3px 6px; display: flex; flex-direction: column; }
+.sector b { font-size: 10px; color: var(--muted); letter-spacing: 0.08em; }
+.sector span { font-size: 15px; font-weight: 700; }
+.sector.live { border-bottom-color: #fff; }
+.sector.best { border-bottom-color: var(--best); }
+.sector.best span { color: var(--best); }
+.sector.slower { border-bottom-color: var(--slower); }
+.sector.slower span { color: var(--slower); }
+#timing .small { font-size: 12px; color: var(--muted); font-weight: 700; letter-spacing: 0.06em; padding-top: 2px; }
+#timing .small .num { color: var(--text); font-size: 14px; }
+#timing .small .best { color: var(--best); }
+#help { left: 16px; top: 190px; font-size: 12px; color: var(--text); text-shadow: 0 1px 3px #000a; opacity: 0.9; }
+
+#auto { left: 50%; top: 16px; transform: translateX(-50%); padding: 6px 14px; font-size: 13px; font-weight: 800; letter-spacing: 0.08em; color: var(--throttle); opacity: 0; transition: opacity 150ms; }
+#auto.on { opacity: 1; }
+#circuit-pick { right: 16px; top: 16px; z-index: 10; pointer-events: auto; /* .panel is click-through; the picker must take clicks */ padding: 6px 10px; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; color: var(--muted); display: flex; align-items: center; gap: 14px; }
+#circuit-pick label { display: flex; align-items: center; gap: 8px; }
+#circuit-pick select { font: inherit; font-size: 12px; letter-spacing: 0.02em; color: #fff; background: #1a1c22; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 4px; padding: 3px 6px; }
+#height { left: 50%; top: 52px; transform: translateX(-50%); padding: 6px 14px; font-size: 13px; font-weight: 800; letter-spacing: 0.08em; opacity: 0; transition: opacity 150ms; }
+#height.on { opacity: 1; }
+
+/* Turn label: positioned each frame over the corner it names (main.ts projects the corner). */
+#turn { left: 0; top: 0; transform: translate(-50%, -100%) skewX(-8deg); display: flex; align-items: stretch; overflow: hidden; opacity: 0; transition: opacity 180ms ease-out; }
+#turn.on { opacity: 1; }
+#turn > * { transform: skewX(8deg); }
+#turn b { background: var(--accent); padding: 6px 12px; font-size: 18px; font-weight: 800; font-style: italic; }
+#turn span { padding: 6px 16px; font-size: 18px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+
+/* Race-engineer bar: one continuous black strip along the bottom holding every instrument. */
+#bar { position: fixed; left: 0; right: 0; bottom: 0; pointer-events: none; background: rgba(9, 10, 14, 0.94); border-top: 2px solid var(--accent); }
+#bar .cells { display: flex; align-items: stretch; height: 112px; }
+#bar .cell { display: flex; align-items: center; padding: 0 16px; border-right: 1px solid rgba(255, 255, 255, 0.08); }
+#bar .cell:last-child { border-right: 0; }
+#bar small { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.08em; }
+
+.speed { flex-direction: column; justify-content: center; min-width: 120px; }
+.speed #speed { font-size: 52px; font-weight: 800; line-height: 1; font-style: italic; }
+
+.inputs { gap: 12px; }
+.pedal { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.pedal b { position: relative; width: 16px; height: 72px; background: rgba(255, 255, 255, 0.08); border-radius: 2px; overflow: hidden; }
+.pedal i { position: absolute; left: 0; right: 0; bottom: 0; height: 0; }
+#throttle { background: var(--throttle); }
+#brake { background: var(--brake); }
+.wheel { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 96px; }
+#wheel { width: 96px; height: 62px; transform-origin: 50% 50%; }
+#steer-deg { color: var(--text); font-size: 12px; }
+
+.strip { flex: 1; justify-content: center; min-width: 0; }
+
+.susp { flex-direction: column; justify-content: center; gap: 2px; font-size: 10px; font-weight: 700; color: var(--muted); }
+.susp .bars { display: flex; gap: 5px; }
+.susp b { position: relative; width: 12px; height: 52px; background: rgba(255, 255, 255, 0.08); border-radius: 2px; overflow: hidden; }
+.susp i { position: absolute; left: 0; right: 0; bottom: 0; background: var(--slower); }
+.susp .labels { display: flex; gap: 5px; }
+.gmeter { gap: 10px; }
+.gmeter canvas { width: 88px; height: 88px; }
+.gmeter .gread { display: grid; grid-template-columns: auto; font-size: 18px; font-weight: 800; line-height: 1.05; }
+.gmeter small { font-size: 9px; font-weight: 700; color: var(--muted); margin-bottom: 4px; letter-spacing: 0.08em; }
+.susp em { width: 12px; font-style: normal; text-align: center; }
+#info { margin-top: 4px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.map { padding: 0 12px; }
+
+#credit { position: static; padding: 3px 16px 5px; font-size: 10px; color: var(--muted); border-top: 1px solid rgba(255, 255, 255, 0.06); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

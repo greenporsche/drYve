@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Spa kinesthetic map</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <section id="timing" class="panel" aria-label="Lap timing">
+      <div class="row head"><span id="lap">OUT LAP</span><span id="laptime" class="num">–</span></div>
+      <div class="sectors">
+        <div class="sector" id="s1"><b>S1</b><span class="num">–</span></div>
+        <div class="sector" id="s2"><b>S2</b><span class="num">–</span></div>
+        <div class="sector" id="s3"><b>S3</b><span class="num">–</span></div>
+      </div>
+      <div class="row small"><span>LAST</span><span id="last" class="num">–</span></div>
+      <div class="row small"><span>BEST</span><span id="best" class="num best">–</span></div>
+    </section>
+    <div id="circuit-pick" class="panel"><label>CIRCUIT <select id="circuit" aria-label="Circuit"></select></label><label>MODE <select id="mode" aria-label="Driving mode"></select></label></div>
+    <div id="help">W/↑ throttle · S/↓ brake/reverse · Space brake · A/D ←/→ steer · R reset · P autopilot (1–5 aggression) · C camera · V elevation view (H height ×1–3) · G racing line · O aerial photo · T trees · B buildings · M mute</div>
+    <div id="auto" class="panel">AUTOPILOT · LEVEL <span id="auto-level">3</span> · 1–5 aggression · P or any driving key to take over</div>
+
+    <div id="height" class="panel">STILTS VIEW · HEIGHT ×1</div>
+    <div id="turn" class="panel" aria-live="polite"><b id="turn-n"></b><span id="turn-name"></span></div>
+
+    <!-- Race-engineer bar: every instrument in one continuous strip along the bottom. -->
+    <footer id="bar" aria-label="Instruments">
+      <div class="cells">
+        <div class="cell speed"><span id="speed" class="num">0</span><small>KM/H</small></div>
+        <div class="cell inputs" aria-label="Driver inputs">
+          <!-- Pedal order as in the car: brake on the left, throttle on the right. -->
+          <div class="pedal" title="Brake"><b><i id="brake"></i></b><small>BRK</small></div>
+          <div class="pedal" title="Throttle"><b><i id="throttle"></i></b><small>THR</small></div>
+          <div class="wheel" title="Steering">
+            <svg id="wheel" viewBox="-54 -36 108 70" aria-hidden="true">
+              <!-- Shift paddles behind the wheel: left = downshift, right = upshift. -->
+              <rect id="paddle-down" x="-42" y="-14" width="10" height="26" rx="3" fill="#2a2d35" />
+              <rect id="paddle-up" x="32" y="-14" width="10" height="26" rx="3" fill="#2a2d35" />
+              <rect x="-34" y="-20" width="68" height="40" rx="12" fill="#2a2d35" stroke="#555a66" stroke-width="2" />
+              <rect x="-50" y="-18" width="16" height="36" rx="7" fill="#3a3e48" />
+              <rect x="34" y="-18" width="16" height="36" rx="7" fill="#3a3e48" />
+              <!-- Rev lights along the top edge, filled from the outside in by main.ts. -->
+              <g id="revs"></g>
+              <rect x="-15" y="-12" width="30" height="20" rx="3" fill="#0b0c10" stroke="#2bd46a" stroke-width="1.2" />
+              <text id="gear" x="0" y="4" text-anchor="middle" font-size="15" font-weight="800" fill="#fff" font-family="system-ui, sans-serif">1</text>
+            </svg>
+            <small id="steer-deg" class="num">0.0°</small>
+          </div>
+        </div>
+        <div class="cell strip"><canvas id="elevation" aria-label="Lap elevation profile with car position"></canvas></div>
+        <div class="cell susp" title="Suspension compression">
+          <div class="bars"><b><i></i></b><b><i></i></b><b><i></i></b><b><i></i></b></div>
+          <div class="labels"><em>FL</em><em>FR</em><em>RL</em><em>RR</em></div>
+          <div id="info"><span id="fps">– FPS</span> · <span id="backend"></span></div>
+        </div>
+        <div class="cell gmeter" title="G-forces felt by the driver: dot = sustained load, ring marks every 2 g">
+          <canvas id="gmeter" aria-label="G-meter"></canvas>
+          <div class="gread"><span id="g-lat" class="num">0.0</span><small>LAT G</small><span id="g-lon" class="num">0.0</span><small>LON G</small></div>
+        </div>
+        <div class="cell map"><canvas id="map" aria-label="Track map with car position"></canvas></div>
+      </div>
+      <div id="credit"></div>
+    </footer>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

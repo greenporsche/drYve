@@ -1,0 +1,57 @@
+{
+  "image": "/data/nurburgring-gp-ortho.jpg",
+  "width": 3455,
+  "height": 4096,
+  "metresPerPixel": 0.5151,
+  "source": {
+    "name": "LVermGeo RLP Digitale Orthophotos DOP20 (WMS rp_dop20)",
+    "service": "https://geo4.service24.rlp.de/wms/rp_dop20.fcgi",
+    "catalogue": "https://www.geoportal.rlp.de/mapbender/php/mod_showMetadata.php?id=3398&languageCode=de&layout=tabs&resource=wms",
+    "tiles": [
+      {
+        "name": "dop20rgb_32_352_5576_2_rp_2023",
+        "created": "2023-09-07",
+        "edition": "2023"
+      },
+      {
+        "name": "dop20rgb_32_352_5578_2_rp_2023",
+        "created": "2023-09-07",
+        "edition": "2023"
+      },
+      {
+        "name": "dop20rgb_32_354_5576_2_rp_2023",
+        "created": "2023-09-07",
+        "edition": "2023"
+      },
+      {
+        "name": "dop20rgb_32_354_5578_2_rp_2023",
+        "created": "2023-09-07",
+        "edition": "2023"
+      }
+    ],
+    "campaignAcquisition": "editions 2023; product created 2023-09-07 (tile metadata gives no flight date)",
+    "nativeResolutionM": 0.2,
+    "licence": "dl-de/by-2-0",
+    "attribution": "Orthophotos ©GeoBasis-DE / LVermGeoRP 2026, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet], resampled to 0.52 m",
+    "crs": "EPSG:25832",
+    "bbox25832": [
+      352641.02,
+      5576383.05,
+      354421.02,
+      5578493.05
+    ]
+  },
+  "localOrigin": {
+    "crs": "EPSG:25832",
+    "easting": 353291.02,
+    "northing": 5577223.05,
+    "height": 601.29
+  },
+  "bounds": {
+    "minX": -650,
+    "maxX": 1130,
+    "minZ": -1270,
+    "maxZ": 840
+  },
+  "uv": "u = (x - minX) / (maxX - minX); v = 1 - (z - minZ) / (maxZ - minZ)"
+}

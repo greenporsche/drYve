@@ -1,0 +1,106 @@
+{
+  "id": "nurburgring-gp",
+  "name": "Nürburgring Grand Prix circuit",
+  "short": "Nürburgring GP",
+  "turns": [
+    {
+      "n": 1,
+      "name": "Castrol-S",
+      "in": 4105,
+      "out": 4159
+    },
+    {
+      "n": 2,
+      "name": "Mercedes-Arena",
+      "in": 4267,
+      "out": 4397
+    },
+    {
+      "n": 3,
+      "name": "Mercedes-Arena",
+      "in": 4519,
+      "out": 4629
+    },
+    {
+      "n": 4,
+      "name": "Mercedes-Arena",
+      "in": 4659,
+      "out": 4725
+    },
+    {
+      "n": 5,
+      "name": "Valvoline-Kurve",
+      "in": 22,
+      "out": 106
+    },
+    {
+      "n": 6,
+      "name": "Ford-Kurve",
+      "osmName": "Ford-Kurve",
+      "in": 178,
+      "out": 276
+    },
+    {
+      "n": 7,
+      "name": "Dunlop-Kehre",
+      "osmName": "Goodyear-Kehre",
+      "in": 768,
+      "out": 906
+    },
+    {
+      "n": 8,
+      "name": "Michael-Schumacher-S",
+      "osmName": "Michael-Schumacher-S",
+      "in": 1182,
+      "out": 1281
+    },
+    {
+      "n": 10,
+      "name": "Kumho-Kurve",
+      "in": 1753,
+      "out": 1815
+    },
+    {
+      "n": 11,
+      "name": "Bit-Kurve",
+      "in": 1941,
+      "out": 2053
+    },
+    {
+      "n": 13,
+      "name": "Veedol-Schikane",
+      "osmName": "NGK-Schikane",
+      "in": 2889,
+      "out": 2927
+    },
+    {
+      "n": 14,
+      "name": "Veedol-Schikane",
+      "osmName": "NGK-Schikane",
+      "in": 2945,
+      "out": 3005
+    },
+    {
+      "n": 15,
+      "name": "Coca-Cola-Kurve",
+      "in": 3147,
+      "out": 3277
+    }
+  ],
+  "controlLine": 3489,
+  "startLine": 3589,
+  "sectorLines": [
+    3489,
+    75,
+    1782
+  ],
+  "calloutLead": 150,
+  "roadWidth": 12,
+  "trackLimit": 7.2,
+  "notes": [
+    "Corners found from centerline curvature (13); numbers and names from Coach Dave Academy Nürburgring GP track guide; German Wikipedia (Nürburgring) (not an FIA document), matched in race order; osmName is the OSM way name where one exists.",
+    "Control (start/finish) line at station 3489 m: first point of the bacinger/f1-circuits de-1927 centerline (2.1 m from ours). Start line (grid front) assumed 100 m after it, so the grid sits past the control line as at Spa.",
+    "Sector lines split the lap into approximate thirds (official sector points not sourced).",
+    "Road width 12 m and track limit 7.2 m from the centerline (car centre) are assumptions, as at Spa; the real width varies."
+  ]
+}
