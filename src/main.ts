@@ -42,8 +42,10 @@ async function start() {
   const reload = (track: string, mode: string) => (location.search = `?track=${track}&mode=${mode}`);
   picker.addEventListener('change', () => reload(picker.value, CAR.id));
   modePicker.addEventListener('change', () => reload(CIRCUIT_ID, modePicker.value));
-  modePicker.addEventListener('keydown', (e) => e.stopPropagation());
-  picker.addEventListener('keydown', (e) => e.stopPropagation()); // don't steer while choosing
+  // Keys used on a HUD control stay with it, except Esc, which always pauses (PO #21244).
+  const keepKeys = (e: KeyboardEvent) => { if (e.code !== 'Escape') e.stopPropagation(); };
+  modePicker.addEventListener('keydown', keepKeys);
+  picker.addEventListener('keydown', keepKeys); // don't steer while choosing
 
   const renderer = new THREE.WebGPURenderer({ antialias: true });
   renderer.setPixelRatio(window.devicePixelRatio);
@@ -152,7 +154,7 @@ async function start() {
   // Controls list: like the pickers, keys used while it has focus (Space/Enter toggle it, arrows scroll the
   // open list) stay with it and don't reach the driving keys; after a mouse click it drops focus so the
   // keys drive again.
-  document.getElementById('help')!.addEventListener('keydown', (e) => e.stopPropagation());
+  document.getElementById('help')!.addEventListener('keydown', keepKeys);
   const helpSummary = document.querySelector<HTMLElement>('#help summary')!;
   helpSummary.addEventListener('click', (e) => {
     if ((e as MouseEvent).detail > 0) helpSummary.blur();
@@ -161,7 +163,7 @@ async function start() {
   // Touch screens have no P key: a button starts and stops the autopilot (shown only on touch-first devices).
   // Like the pickers, its keys don't also reach the driving keys; a tap or click drops focus.
   const autoBtn = document.getElementById('auto-btn') as HTMLButtonElement;
-  autoBtn.addEventListener('keydown', (e) => e.stopPropagation());
+  autoBtn.addEventListener('keydown', keepKeys);
   autoBtn.addEventListener('click', (e) => {
     auto.on = !auto.on;
     if ((e as MouseEvent).detail > 0) autoBtn.blur();
@@ -278,6 +280,18 @@ async function start() {
   window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyC' && !e.repeat) cameraMode = (cameraMode + 1) % CAMERAS.length;
   });
+  // Esc pauses and resumes (PO #21244): physics, lap timing, tyre smoke and sound stop; the view stays drawn.
+  const pausedEl = document.getElementById('paused')!;
+  let paused = false;
+  let pausedAt = 0; // the clock the wheel display and guide animate by stops here while paused
+  window.addEventListener('keydown', (e) => {
+    if (e.code !== 'Escape' || e.repeat) return;
+    paused = !paused;
+    pausedAt = performance.now();
+    pausedEl.classList.toggle('on', paused);
+    sound.setPaused(paused);
+  });
+  Object.defineProperty(sim, 'paused', { get: () => paused });
   let lapResets = 0;
   let frameDt = 1 / 60;
   let last = performance.now();
@@ -323,6 +337,7 @@ async function start() {
     autoLevelEl.textContent = String(auto.level);
     // One fixed-step simulation loop owns physics time. The autopilot (when engaged) sets its
     // inputs at each step, through the same throttle/brake/steer path as the keyboard.
+    if (paused) acc = 0; // no steps while paused, and none owed on resume
     while (acc >= PHYSICS_DT) {
       autopilot.drive(car, lapTracker, PHYSICS_DT);
       dw.advance();
@@ -394,17 +409,18 @@ async function start() {
     // Controls actually applied to the car (keyboard or autopilot), and the front-wheel angle.
     throttleEl.style.height = `${Math.round(car.applied.throttle * 100)}%`;
     brakeEl.style.height = `${Math.round(car.applied.brake * 100)}%`;
-    engine.update(car.speed, car.applied.reverse, now);
+    const animNow = paused ? pausedAt : now;
+    if (!paused) engine.update(car.speed, car.applied.reverse, now);
     gearEl.textContent = engine.gear === 0 ? 'R' : String(engine.gear);
     const slideMax = Math.max(...car.tyre.map((t) => (t.fz > 0 ? t.slide : 0)));
     sound.update(engine.rpm, car.applied.throttle, car.speed, car.wheelsOnKerb, car.odometer, slideMax, car.tyre.some((t) => t.fz > 0 && t.slip < -0.5) /* locked: braking slip well past the peak (EM #20798) */);
-    smoke.update(car, frameDt);
+    if (!paused) smoke.update(car, frameDt);
     drawG();
     const revs = engine.revLights();
     const lit = Math.round(revs.fill * revEls.length);
-    const blink = revs.flash && Math.floor(now / 60) % 2 === 0;
+    const blink = revs.flash && Math.floor(animNow / 60) % 2 === 0;
     revEls.forEach((el, i) => el.setAttribute('fill', revs.flash ? (blink ? REV_COLOURS[2] : '#1a1c22') : i < lit ? REV_COLOURS[Math.floor(i / 5)] : '#1a1c22'));
-    const paddle = engine.paddle(now);
+    const paddle = engine.paddle(animNow);
     paddleUpEl.setAttribute('fill', paddle === 'up' ? '#ffd23f' : '#2a2d35');
     paddleDownEl.setAttribute('fill', paddle === 'down' ? '#ffd23f' : '#2a2d35');
     wheelEl.style.transform = `rotate(${(-car.steer * STEERING_RATIO * 180) / Math.PI}deg)`;
@@ -432,7 +448,7 @@ async function start() {
     }
     turnEl.classList.toggle('on', onScreen);
     strip.draw(lapTracker.station, altitude);
-    if (guide.mesh.visible) guide.update(autopilot.referenceSpeed, Math.abs(car.speed), lapTracker.index, now / 1000);
+    if (guide.mesh.visible) guide.update(autopilot.referenceSpeed, Math.abs(car.speed), lapTracker.index, animNow / 1000);
     suspEls.forEach((el, i) => (el.style.height = `${Math.round(car.compression(i) * 100)}%`));
     minimap.draw(car.group.position.x, car.group.position.z);
     renderer.render(scene, camera);

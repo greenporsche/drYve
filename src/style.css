@@ -65,6 +65,12 @@ canvas { display: block; }
 #circuit-pick { right: 16px; top: 16px; z-index: 10; pointer-events: auto; /* .panel is click-through; the picker must take clicks */ padding: 6px 10px; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; color: var(--muted); display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 6px 14px; max-width: calc(100vw - 32px); box-sizing: border-box; }
 #circuit-pick label { display: flex; align-items: center; gap: 8px; }
 #circuit-pick select { font: inherit; font-size: 12px; letter-spacing: 0.02em; color: #fff; background: #1a1c22; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 4px; padding: 3px 6px; }
+/* Esc pause: the whole view dims under one note in the middle; clicks still pass through to the pickers. */
+#paused { display: none; position: fixed; inset: 0; z-index: 20; align-items: center; justify-content: center; background: rgba(8, 10, 16, 0.4); pointer-events: none; }
+#paused.on { display: flex; }
+#paused .panel { position: static; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 22px; }
+#paused b { font-size: 20px; font-weight: 800; letter-spacing: 0.12em; }
+#paused small { font-size: 12px; font-weight: 600; color: var(--muted); }
 #height { display: none; padding: 6px 12px; font-size: 13px; font-weight: 800; letter-spacing: 0.08em; }
 #height.on { display: block; }
 

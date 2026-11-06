@@ -31,13 +31,21 @@ export class CarSound {
     window.addEventListener('pointerdown', () => this.start());
   }
 
+  // Esc pause: the whole audio graph stops; a key or tap while paused does not restart it.
+  private paused = false;
+  setPaused(paused: boolean) {
+    this.paused = paused;
+    if (this.ctx) void (paused ? this.ctx.suspend() : this.ctx.resume());
+  }
+
   private start() {
     if (this.ctx) {
-      if (this.ctx.state === 'suspended') void this.ctx.resume();
+      if (this.ctx.state === 'suspended' && !this.paused) void this.ctx.resume();
       return;
     }
     const ctx = new AudioContext();
     this.ctx = ctx;
+    if (this.paused) void ctx.suspend();
     this.master = ctx.createGain();
     this.master.gain.value = this.muted ? 0 : MASTER;
     this.master.connect(ctx.destination);
