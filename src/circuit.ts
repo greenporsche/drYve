@@ -4,6 +4,8 @@
 // reloads the page, so only one circuit's assets are ever loaded.
 //
 // The values below are live bindings: modules read them after loadCircuit() has filled them in.
+import { SETTINGS } from './settings';
+
 export interface Turn {
   n: number;
   name: string;
@@ -15,9 +17,9 @@ export const CIRCUITS = [
   { id: 'spa', label: 'Spa-Francorchamps' },
   { id: 'nurburgring-gp', label: 'Nürburgring GP' },
 ];
-const requested = new URLSearchParams(location.search).get('track');
+const requested = SETTINGS.track;
 export const CIRCUIT_ID = CIRCUITS.some((c) => c.id === requested) ? requested! : 'spa';
-export const asset = (file: string) => `/data/${CIRCUIT_ID}-${file}`;
+export const asset = (file: string) => `${SETTINGS.dataBase}${CIRCUIT_ID}-${file}`;
 
 export let CIRCUIT_NAME = '';
 export let TURNS: Turn[] = [];

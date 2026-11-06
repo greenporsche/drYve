@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { input } from './input';
+import type { Controls } from './controls';
 import { buildBodywork } from './bodywork';
 import { CAR } from './carconfig';
 
@@ -112,7 +112,8 @@ export class Car {
   private prevVel: { x: number; y: number; z: number } | null = null;
   private dt = 1 / 120;
 
-  constructor(scene: THREE.Object3D, world: RAPIER.World, private spawn: { pos: THREE.Vector3; yaw: number }) {
+  // controls: the driver's inputs (keyboard/autopilot in the browser, the gym's action headless).
+  constructor(scene: THREE.Object3D, world: RAPIER.World, private spawn: { pos: THREE.Vector3; yaw: number }, private controls: Controls) {
     this.body = world.createRigidBody(
       RAPIER.RigidBodyDesc.dynamic()
         .setLinearDamping(0) // aerodynamic drag is applied explicitly (DRAG), matching the speed planner
@@ -269,6 +270,7 @@ export class Car {
   }
 
   step(dt: number) {
+    const input = this.controls;
     if (input.reset) this.reset();
     if (this.settleSteps > 0) {
       this.settleSteps--;

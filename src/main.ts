@@ -1,25 +1,24 @@
 import * as THREE from 'three/webgpu';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { addRoadMarkings, addSurface, loadTrack } from './surface';
-import { Car, CAR_LIMITS } from './car';
+import { addRoadMarkings, loadTrack } from './surface';
+import { CAR_LIMITS } from './car';
 import { CAR, MODES } from './carconfig';
 import { RacingLineGuide } from './guide';
 import { Minimap } from './minimap';
 import { TURNS, CIRCUITS, CIRCUIT_ID, CIRCUIT_NAME, asset, loadCircuit } from './circuit';
-import { addStartFinish, gridSlot, roadFrame } from './startline';
-import { LapTracker, formatTime } from './lap';
+import { addStartFinish, roadFrame } from './startline';
+import { formatTime } from './lap';
 import { ElevationStrip } from './elevation';
-import { auto } from './input';
+import { auto, input } from './input';
 import { Autopilot } from './autopilot';
 import { Engine } from './engine';
-import { addKerbs } from './kerbs';
 import { CarSound } from './sound';
 import { TyreSmoke } from './smoke';
 import { buildCoaster } from './coaster';
 import { loadOrtho, addPhotoUVs } from './ortho';
 import { buildTrees, buildBuildings, type SceneryData } from './scenery';
+import { DrivingWorld, PHYSICS_DT, loadReferenceLine } from './world';
 
-const PHYSICS_DT = 1 / 120;
 const CAMERAS = [
   { name: 'chase', offset: new THREE.Vector3(0, 3.2, -9), lookAhead: new THREE.Vector3(0, 1, 0), smoothing: 7.7, followPitch: true },
   { name: 'drone', offset: new THREE.Vector3(0, 38, -42), lookAhead: new THREE.Vector3(0, 0, 25), smoothing: 3, followPitch: false },
@@ -73,25 +72,17 @@ async function start() {
   const drawn = new THREE.Group();
   scene.add(drawn);
 
-  const world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
-  world.timestep = PHYSICS_DT;
-
-  // Baked LiDAR surface: same positions/indices for the mesh and the collider.
+  // The shared driving world (S5.2): road ribbon, surrounding ground and kerb colliders, the car and lap
+  // timing, advanced in fixed steps by the same advance() the headless gym uses.
   const roadMat = new THREE.MeshStandardMaterial({ color: 0x55585e, roughness: 0.9 });
   const shoulderMat = new THREE.MeshStandardMaterial({ color: 0x5f7f4a, roughness: 1 });
-  const order = ['road', 'shoulder'];
-  const groups = [...track.groups].sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
-  const ribbonMesh = addSurface(drawn, world, track.positions, track.indices, [roadMat, shoulderMat], groups);
-  addRoadMarkings(drawn, track);
-  // Surrounding ground (scenery stage 1): apron continuing the ribbon plus a coarse grid, drawn and
-  // collided as one surface like the road.
-  const terrain = await loadTrack(asset('terrain.json')).catch(() => null);
-  let terrainMesh: THREE.Mesh | null = null;
   const apronMat = new THREE.MeshStandardMaterial({ color: 0x5f7f4a, roughness: 1 });
   const gridMat = new THREE.MeshStandardMaterial({ color: 0x587a45, roughness: 1 });
-  if (terrain) {
-    terrainMesh = addSurface(drawn, world, terrain.positions, terrain.indices, [apronMat, gridMat], terrain.groups);
-  }
+  const terrain = await loadTrack(asset('terrain.json')).catch(() => null);
+  const dw = new DrivingWorld(drawn, track, terrain, input, { road: roadMat, shoulder: shoulderMat, apron: apronMat, grid: gridMat });
+  const { world, car, ribbonMesh, terrainMesh, kerbs, spawn } = dw;
+  const lapTracker = dw.lap;
+  addRoadMarkings(drawn, track);
   // Aerial photo layer (O): the baked SPW orthophoto on the ground and the road shoulders; the road
   // itself stays grey. Off (and in the V view) the original materials come back, so the photo is not
   // drawn at all. Visual only: the colliders are unchanged.
@@ -146,19 +137,9 @@ async function start() {
     applyLayers();
     applyHeight();
   });
-  const kerbs = addKerbs(drawn, world, track, TURNS.map((t) => [t.in - 10, t.out + 10]));
-
   addStartFinish(drawn, track);
-  const pole = gridSlot(track, 0);
-  const spawn = { pos: pole.pos.add(new THREE.Vector3(0, 1.0, 0)), yaw: pole.yaw };
-  const car = new Car(drawn, world, spawn);
-  car.kerbHandle = kerbs.handle;
-  // Handle for console inspection during verification drives.
-  const lapTracker = new LapTracker(track);
   // The circuit's reference racing line, baked where one exists (Spa); otherwise computed once.
-  const baked: { samples: number; n: number[] } | null = await fetch(asset('line.json')).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-  const reference = baked && baked.samples === track.centerline.distance.length ? baked.n : undefined;
-  if (baked && !reference) console.warn('reference line does not match the lap samples; computing one');
+  const reference = await loadReferenceLine(track);
   const autopilot = new Autopilot(track, CAR_LIMITS, reference);
   // Racing-line guide on the road: the shared reference line (the same geometry at every level and in
   // both modes, PO #21026), coloured by its planned speeds at the current level's pace.
@@ -169,7 +150,7 @@ async function start() {
   });
   const autoEl = document.getElementById('auto')!;
   const autoLevelEl = document.getElementById('auto-level')!;
-  const sim = { auto, car, world, backend, track, lap: lapTracker, camera, frameDt: 0, engine: null as unknown, autopilot, guide, terrainHandle: terrainMesh?.userData.colliderHandle as number | undefined };
+  const sim = { auto, car, world, dw, backend, track, lap: lapTracker, camera, frameDt: 0, engine: null as unknown, autopilot, guide, terrainHandle: terrainMesh?.userData.colliderHandle as number | undefined };
   (window as unknown as { __sim: object }).__sim = sim;
 
   const lowestY = Math.min(...track.centerline.points.filter((_, i) => i % 3 === 1));
@@ -274,8 +255,6 @@ async function start() {
   const tmp = new THREE.Vector3();
   const drawnCar = new THREE.Vector3();
   let acc = 0;
-  let simTime = 0;
-  let autoWasOn = false, autoResets = -1; // autopilot engagement / placement seen by the step loop
   let seenResets = 0;
   let cameraMode = 0;
   let seenCamera = 0;
@@ -291,14 +270,14 @@ async function start() {
   function updateTiming() {
     const lt = lapTracker;
     lapEl.textContent = lt.lap > 0 ? (lt.invalid ? `LAP ${lt.lap} · INVALID` : `LAP ${lt.lap}`) : 'OUT LAP';
-    lapTimeEl.textContent = lt.lap > 0 ? formatTime(simTime - lt.lapStart) : '–';
+    lapTimeEl.textContent = lt.lap > 0 ? formatTime(dw.time - lt.lapStart) : '–';
     lastEl.textContent = lt.lastLap === null ? '–' : `${formatTime(lt.lastLap)}${lt.lastInvalid ? ' ✕' : ''}`;
     bestEl.textContent = formatTime(lt.bestLap);
     sectorEls.forEach((el, k) => {
       // This lap's completed sectors; the running one live; later ones show last lap's time.
       const done = lt.lap > 0 && k < lt.sector ? lt.current[k] : null;
       const live = lt.lap > 0 && k === lt.sector;
-      const shown = done ?? (live ? simTime - lt.sectorStart : lt.last[k]);
+      const shown = done ?? (live ? dw.time - lt.sectorStart : lt.last[k]);
       const isBest = shown !== null && !live && shown === lt.bestSectors[k];
       el.className = `sector ${live ? 'live' : shown === null ? '' : isBest ? 'best' : 'slower'}`;
       el.querySelector('span')!.textContent = formatTime(shown);
@@ -323,30 +302,15 @@ async function start() {
     // One fixed-step simulation loop owns physics time. The autopilot (when engaged) sets its
     // inputs at each step, through the same throttle/brake/steer path as the keyboard.
     while (acc >= PHYSICS_DT) {
-      if (auto.on) {
-        const p = car.body.translation(), r = car.body.rotation();
-        const yaw = Math.atan2(2 * (r.w * r.y + r.x * r.z), 1 - 2 * (r.y * r.y + r.z * r.z));
-        if (!autoWasOn || car.resets !== autoResets) autopilot.reseed();
-        // Simulation driver: its line position from the chassis each fixed step (the lap tracker itself
-        // refreshes once per frame), and horizontal speed for its horizontal-curvature terms (EM #20892).
-        const lv = car.body.linvel();
-        const idx = CAR_LIMITS.limitAware ? lapTracker.locate(p.x, p.z).index : lapTracker.index;
-        autopilot.update(idx, p.x, p.z, yaw, Math.abs(car.speed), car.tyre.map((t) => t.slip), PHYSICS_DT, Math.hypot(lv.x, lv.z));
-      }
-      autoWasOn = auto.on;
-      autoResets = car.resets;
-      car.capturePrev();
-      car.step(PHYSICS_DT);
-      world.step();
-      car.sampleG(PHYSICS_DT);
+      autopilot.drive(car, lapTracker, PHYSICS_DT);
+      dw.advance();
       acc -= PHYSICS_DT;
-      simTime += PHYSICS_DT;
     }
+    const simTime = dw.time;
     // Off the edge of the world: put the car back on the track where it left, facing along it,
     // at rest. (Manual R still returns to the grid.) Either way the lap in progress is void.
     {
-      const p = car.body.translation();
-      lapTracker.update(p.x, p.z, simTime); // current position first, so the check below isn't stale
+      const p = car.body.translation(); // the lap tracker was updated at the last fixed step
       const i = lapTracker.index, c = track.centerline.points;
       const off = Math.hypot(p.x - c[i * 3], p.z - c[i * 3 + 2]);
       // With the surrounding ground loaded, only falling out of the world or nearing its outer edge

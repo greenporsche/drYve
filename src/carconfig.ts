@@ -9,6 +9,7 @@
 // the progressive key input only, so over-asking the tyres understeers or spins. Its values are
 // being calibrated against 2025 F1 references (S1.13); this is not a reconstruction of a real car.
 import type { CarLimits } from './raceline';
+import { SETTINGS } from './settings';
 
 export interface CarConfig {
   id: 'accessible' | 'simulation';
@@ -127,5 +128,5 @@ const SIMULATION: CarConfig = {
 };
 
 export const MODES = [ACCESSIBLE, SIMULATION].map((c) => Object.freeze(c));
-const requested = new URLSearchParams(location.search).get('mode');
+const requested = SETTINGS.mode;
 export const CAR: Readonly<CarConfig> = MODES.find((m) => m.id === requested) ?? MODES[0];

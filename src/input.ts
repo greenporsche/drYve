@@ -1,9 +1,9 @@
+import { auto, type Controls } from './controls';
+export { auto };
+
 const down = new Set<string>();
 const DRIVING_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'];
 
-// Autopilot commands, written by the autopilot each frame while it is engaged.
-// Pedals are 0..1 (fractional); keys give the endpoints.
-export const auto = { on: false, throttle: 0, brake: 0, steer: 0, level: 3 };
 
 window.addEventListener('keydown', (e) => {
   down.add(e.code);
@@ -14,7 +14,8 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => down.delete(e.code));
 window.addEventListener('blur', () => down.clear());
 
-export const input = {
+// Browser controls: the keyboard, or the autopilot's commands while it is engaged.
+export const input: Controls = {
   // 0..1. Keys: 0 or 1; autopilot: any fraction.
   get throttle() { return auto.on ? auto.throttle : down.has('KeyW') || down.has('ArrowUp') ? 1 : 0; },
   get brake() { return auto.on ? auto.brake : down.has('KeyS') || down.has('ArrowDown') ? 1 : 0; },

@@ -1,5 +1,7 @@
 import type { Track } from './surface';
-import { auto } from './input';
+import { auto } from './controls';
+import type { Car } from './car';
+import type { LapTracker } from './lap';
 import { computeLine, lineFromOffsets, speedProfile, lapTime, type CarLimits } from './raceline';
 import { steerLock } from './car';
 
@@ -89,6 +91,25 @@ export class Autopilot {
   // The reference line's planned speeds at the current level's pace (the guide's colours).
   get referenceSpeed() {
     return this.referenceSpeeds[auto.level - 1];
+  }
+
+  // One fixed step of driving (browser loop and gym alike): read the car and its place on the lap,
+  // write the commands into `auto`. Reseeds when the autopilot engages or the car is placed.
+  private wasOn = false;
+  private seenResets = -1;
+  drive(car: Car, lap: LapTracker, dt: number) {
+    if (auto.on) {
+      const p = car.body.translation(), r = car.body.rotation();
+      const yaw = Math.atan2(2 * (r.w * r.y + r.x * r.z), 1 - 2 * (r.y * r.y + r.z * r.z));
+      if (!this.wasOn || car.resets !== this.seenResets) this.reseed();
+      // Simulation driver: its line position from the chassis each fixed step, and horizontal speed
+      // for its horizontal-curvature terms (EM #20892).
+      const lv = car.body.linvel();
+      const idx = this.limits.limitAware ? lap.locate(p.x, p.z).index : lap.index;
+      this.update(idx, p.x, p.z, yaw, Math.abs(car.speed), car.tyre.map((t) => t.slip), dt, Math.hypot(lv.x, lv.z));
+    }
+    this.wasOn = auto.on;
+    this.seenResets = car.resets;
   }
 
   // Forget the last heading (call when the autopilot engages or the car is placed), so the yaw-rate
