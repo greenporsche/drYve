@@ -82,5 +82,6 @@
       <div id="credit"></div>
     </footer>
     <script type="module" src="/src/main.ts"></script>
+    <script>if (location.hostname === "dryve.fast") navigator.sendBeacon("https://hello.siddharthkrishna.com/hit", JSON.stringify({ host: location.hostname, path: location.pathname + location.search, ref: document.referrer }));</script>
   </body>
 </html>
