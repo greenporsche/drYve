@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/v", "destination": "https://hello.siddharthkrishna.com/hit" }
+  ]
+}
