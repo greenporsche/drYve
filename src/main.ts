@@ -5,7 +5,7 @@ import { CAR_LIMITS } from './car';
 import { CAR, MODES } from './carconfig';
 import { RacingLineGuide } from './guide';
 import { Minimap } from './minimap';
-import { TURNS, CIRCUITS, CIRCUIT_ID, CIRCUIT_NAME, asset, loadCircuit } from './circuit';
+import { TURNS, CIRCUITS, CIRCUIT_ID, CIRCUIT_NAME, CIRCUIT_SHORT, asset, loadCircuit } from './circuit';
 import { addStartFinish, roadFrame } from './startline';
 import { formatTime } from './lap';
 import { ElevationStrip } from './elevation';
@@ -32,7 +32,7 @@ const STEERING_RATIO = 4; // steering-wheel turn per front-wheel angle, for the 
 async function start() {
   const [track] = await Promise.all([loadTrack(asset('lap.json')), RAPIER.init(), loadCircuit()]);
   // Circuit picker: changing it reloads the page with ?track=<id> (only that circuit's assets load).
-  document.title = `${CIRCUIT_NAME}: kinesthetic map`; // the tab names the circuit being driven (EM #20833)
+  document.title = `dryve · ${CIRCUIT_SHORT}`; // the tab names the site and the circuit being driven (EM #20833, PO #21141)
   const picker = document.getElementById('circuit') as HTMLSelectElement;
   for (const c of CIRCUITS) picker.add(new Option(c.label, c.id, false, c.id === CIRCUIT_ID));
   // Driving mode picker (Accessible / Simulation): reloads with the circuit kept; the circuit picker
@@ -158,6 +158,15 @@ async function start() {
     if ((e as MouseEvent).detail > 0) helpSummary.blur();
   });
   const autoLevelEl = document.getElementById('auto-level')!;
+  // Touch screens have no P key: a button starts and stops the autopilot (shown only on touch-first devices).
+  // Like the pickers, its keys don't also reach the driving keys; a tap or click drops focus.
+  const autoBtn = document.getElementById('auto-btn') as HTMLButtonElement;
+  autoBtn.addEventListener('keydown', (e) => e.stopPropagation());
+  autoBtn.addEventListener('click', (e) => {
+    auto.on = !auto.on;
+    if ((e as MouseEvent).detail > 0) autoBtn.blur();
+  });
+  let autoShown: boolean | null = null;
   const sim = { auto, car, world, dw, backend, track, lap: lapTracker, camera, frameDt: 0, engine: null as unknown, autopilot, guide, terrainHandle: terrainMesh?.userData.colliderHandle as number | undefined };
   (window as unknown as { __sim: object }).__sim = sim;
 
@@ -306,6 +315,11 @@ async function start() {
       fpsSince = now;
     }
     autoEl.classList.toggle('on', auto.on);
+    if (auto.on !== autoShown) {
+      autoShown = auto.on;
+      autoBtn.textContent = auto.on ? 'Stop autopilot' : 'Start autopilot';
+      autoBtn.setAttribute('aria-pressed', String(auto.on));
+    }
     autoLevelEl.textContent = String(auto.level);
     // One fixed-step simulation loop owns physics time. The autopilot (when engaged) sets its
     // inputs at each step, through the same throttle/brake/steer path as the keyboard.

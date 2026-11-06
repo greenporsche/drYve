@@ -22,6 +22,7 @@ export const CIRCUIT_ID = CIRCUITS.some((c) => c.id === requested) ? requested! 
 export const asset = (file: string) => `${SETTINGS.dataBase}${CIRCUIT_ID}-${file}`;
 
 export let CIRCUIT_NAME = '';
+export let CIRCUIT_SHORT = ''; // short name for the tab title and picker
 export let TURNS: Turn[] = [];
 export let CONTROL_LINE = 0; // lap and sector timing
 export let START_LINE = 0; // the grid forms up behind this line
@@ -33,6 +34,7 @@ export let TRACK_LIMIT = 7.2; // m from the centerline (car centre) before a lap
 export async function loadCircuit() {
   const c = await (await fetch(asset('circuit.json'))).json();
   CIRCUIT_NAME = c.name;
+  CIRCUIT_SHORT = c.short ?? c.name;
   TURNS = c.turns;
   CONTROL_LINE = c.controlLine;
   START_LINE = c.startLine;

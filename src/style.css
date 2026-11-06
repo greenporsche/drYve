@@ -46,6 +46,18 @@ canvas { display: block; }
 #help ul { margin: 6px 0 2px; padding: 0; list-style: none; display: grid; gap: 3px; }
 #help kbd { font: inherit; font-weight: 700; padding: 0 4px; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 3px; background: rgba(255, 255, 255, 0.06); }
 
+/* Autopilot button: touch-first screens only (no P key there). */
+#auto-btn { display: none; pointer-events: auto; flex-shrink: 0; min-height: 44px; padding: 8px 14px; font: inherit; font-size: 13px; font-weight: 800; letter-spacing: 0.06em; color: var(--throttle); cursor: pointer; text-transform: uppercase; }
+#auto-btn[aria-pressed='true'] { color: var(--text); }
+/* Touch-first screens: the button replaces P; the status drops its keyboard hint. Phones (narrow or short) also
+   drop the keyboard Controls list, and landscape phones the timing LAST/BEST rows, so the column fits. */
+@media (hover: none) and (pointer: coarse) {
+  #auto-btn { display: block; }
+  #auto small { display: none; }
+}
+@media (hover: none) and (pointer: coarse) and (max-width: 540px) { #help { display: none; } }
+@media (hover: none) and (pointer: coarse) and (max-height: 480px) { #help, #timing .small { display: none; } }
+
 #auto { display: none; flex-direction: column; gap: 2px; padding: 6px 12px; color: var(--throttle); }
 #auto.on { display: flex; }
 #auto b { font-size: 13px; font-weight: 800; letter-spacing: 0.08em; }

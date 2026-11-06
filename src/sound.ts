@@ -27,6 +27,8 @@ export class CarSound {
       }
       this.start();
     });
+    // A tap or click is a user gesture too (touch screens have no keys), so it can start the sound.
+    window.addEventListener('pointerdown', () => this.start());
   }
 
   private start() {

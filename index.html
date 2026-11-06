@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Spa kinesthetic map</title>
+    <title>dryve</title>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
@@ -19,6 +19,8 @@
       <div class="row small"><span>LAST</span><span id="last" class="num">–</span></div>
       <div class="row small"><span>BEST</span><span id="best" class="num best">–</span></div>
     </section>
+    <!-- Touch screens only (no P key there); right under timing so it is never the item pushed off-screen. -->
+    <button id="auto-btn" class="panel" type="button" aria-pressed="false">Start autopilot</button>
     <div id="auto" class="panel" role="status"><b>AUTOPILOT · LEVEL <span id="auto-level">3</span></b><small>1–5 aggression · P or any driving key to take over</small></div>
     <div id="height" class="panel">STILTS VIEW · HEIGHT ×1</div>
     <details id="help" class="panel">
