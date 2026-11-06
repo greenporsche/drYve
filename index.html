@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
+    <!-- Left column: timing, then status and controls stacked under it, so nothing overlaps. -->
+    <div id="side">
     <section id="timing" class="panel" aria-label="Lap timing">
       <div class="row head"><span id="lap">OUT LAP</span><span id="laptime" class="num">–</span></div>
       <div class="sectors">
@@ -17,11 +19,26 @@
       <div class="row small"><span>LAST</span><span id="last" class="num">–</span></div>
       <div class="row small"><span>BEST</span><span id="best" class="num best">–</span></div>
     </section>
-    <div id="circuit-pick" class="panel"><label>CIRCUIT <select id="circuit" aria-label="Circuit"></select></label><label>MODE <select id="mode" aria-label="Driving mode"></select></label></div>
-    <div id="help">W/↑ throttle · S/↓ brake/reverse · Space brake · A/D ←/→ steer · R reset · P autopilot (1–5 aggression) · C camera · V elevation view (H height ×1–3) · G racing line · O aerial photo · T trees · B buildings · M mute</div>
-    <div id="auto" class="panel">AUTOPILOT · LEVEL <span id="auto-level">3</span> · 1–5 aggression · P or any driving key to take over</div>
-
+    <div id="auto" class="panel" role="status"><b>AUTOPILOT · LEVEL <span id="auto-level">3</span></b><small>1–5 aggression · P or any driving key to take over</small></div>
     <div id="height" class="panel">STILTS VIEW · HEIGHT ×1</div>
+    <details id="help" class="panel">
+      <summary>Controls <span>W A S D or arrows to drive · P autopilot</span></summary>
+      <ul>
+        <li><kbd>W</kbd>/<kbd>↑</kbd> throttle</li>
+        <li><kbd>S</kbd>/<kbd>↓</kbd> brake, reverse when stopped</li>
+        <li><kbd>Space</kbd> brake</li>
+        <li><kbd>A</kbd>/<kbd>D</kbd> <kbd>←</kbd>/<kbd>→</kbd> steer</li>
+        <li><kbd>R</kbd> back to the grid</li>
+        <li><kbd>P</kbd> autopilot, <kbd>1</kbd>–<kbd>5</kbd> aggression</li>
+        <li><kbd>C</kbd> camera</li>
+        <li><kbd>V</kbd> elevation view, <kbd>H</kbd> height ×1–3</li>
+        <li><kbd>G</kbd> racing line</li>
+        <li><kbd>O</kbd> aerial photo · <kbd>T</kbd> trees · <kbd>B</kbd> buildings</li>
+        <li><kbd>M</kbd> mute</li>
+      </ul>
+    </details>
+    </div>
+    <div id="circuit-pick" class="panel"><label>CIRCUIT <select id="circuit" aria-label="Circuit"></select></label><label>MODE <select id="mode" aria-label="Driving mode"></select></label></div>
     <div id="turn" class="panel" aria-live="polite"><b id="turn-n"></b><span id="turn-name"></span></div>
 
     <!-- Race-engineer bar: every instrument in one continuous strip along the bottom. -->

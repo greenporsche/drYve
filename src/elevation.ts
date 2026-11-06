@@ -33,7 +33,7 @@ export class ElevationStrip {
 
   // Size the strip to `width` CSS px and redraw the static profile (called on resize).
   layout(width: number) {
-    const W = Math.max(240, Math.floor(width));
+    const W = Math.max(60, Math.floor(width)); // fits its cell (narrow windows hide the cell instead)
     this.W = W;
     const canvas = this.canvas, track = this.track;
     const dpr = window.devicePixelRatio || 1;

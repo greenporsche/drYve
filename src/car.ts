@@ -62,6 +62,14 @@ const REV_HEADROOM = CAR.revHeadroom, REV_BASE = CAR.revBase, REV_FADE = 8; // x
 const SLIP_PEAK = Math.tan(Math.PI / (2 * SLIP_C)) / SLIP_B;
 const muX = (k: number) => MU_PEAK * Math.sin(SLIP_C * Math.atan(SLIP_B * k));
 const muXSlope = (k: number) => (MU_PEAK * Math.cos(SLIP_C * Math.atan(SLIP_B * k)) * SLIP_C * SLIP_B) / (1 + (SLIP_B * k) ** 2);
+// ABS (Accessible only; see carconfig): the braking slip each braked wheel is held at, and the road speed
+// below which it switches off, so the car still comes to rest and holds still on the plain brake. The
+// cut-off is where the target spin (vc - ABS_SLIP den) / R reaches zero (den is at least SLIP_V_MIN),
+// so the wheel is already nearly stopped when the plain brake takes over: a higher cut-off hands the
+// full pedal torque to a still-spinning wheel, and the reconciliation then spins it backward for a step.
+const ABS = CAR.abs;
+const ABS_SLIP = SLIP_PEAK;
+const ABS_MIN_SPEED = ABS_SLIP * SLIP_V_MIN; // m/s (~0.35, about 1.3 km/h)
 const MAX_STEER = CAR.maxSteer; // rad, physical steering lock
 const WHEELBASE = 3.3; // m, front to rear axle
 // Steering lock shrinks with speed so a full keyboard press asks for about this much
@@ -103,7 +111,7 @@ export class Car {
   // Per-wheel state (FL, FR, RL, RR): spin rate (rad/s), rotation angle, longitudinal slip, the tyre
   // force asked of Rapier and the share of it Rapier delivered at the last step (its friction clamp).
   // balance: the last step's angular-momentum residual, I dw - ((Td - Tb) dt - R J_delivered) (should be ~0).
-  readonly tyre = WHEELS.map(() => ({ omega: 0, angle: 0, slip: 0, slide: 0, fz: 0, fx: 0, fxSolve: 0, delivered: 0, torque: 0, balance: 0, vc: 0, den: SLIP_V_MIN, vLat: 0, sliding: 0, sideStiffness: 1, sideImpulse: 0, mEff: M_EFF_DEFAULT, combinedSlide: 0, mEffUpdated: false }));
+  readonly tyre = WHEELS.map(() => ({ omega: 0, angle: 0, slip: 0, slide: 0, fz: 0, fx: 0, fxSolve: 0, delivered: 0, torque: 0, balance: 0, vc: 0, den: SLIP_V_MIN, vLat: 0, sliding: 0, sideStiffness: 1, sideImpulse: 0, mEff: M_EFF_DEFAULT, combinedSlide: 0, mEffUpdated: false, absActive: false, brakeRequested: 0, brakeApplied: 0 }));
   // G-meter (sampled once per fixed step from the true physics velocity, in the car's frame): what the
   // driver feels, acceleration minus gravity. `g` is the sustained load (smoothed over ~0.1 s, the
   // corner/braking reading); `gRaw` the per-step value, where brief kerb and bump spikes show.
@@ -392,6 +400,13 @@ export class Car {
       const revLimit = (Math.abs(vc) / WHEEL_RADIUS) * REV_HEADROOM + REV_BASE;
       const drive = w.front ? 0 : engine * WHEEL_RADIUS * THREE.MathUtils.clamp((revLimit - Math.abs(t.omega)) / REV_FADE, 0, 1); // N m
       const brakeT = brake * (w.front ? BRAKE_FRONT : BRAKE_REAR) * WHEEL_RADIUS; // N m, opposes spin
+      // ABS (S1.15, EM #21104): on a loaded wheel with the road moving forward under it faster than
+      // ABS_MIN_SPEED, the brake torque is cut to what this step's implicit solve needs to leave the wheel
+      // at the slip peak (spin (vc - ABS_SLIP den) / R), from the same linearised equation as the solve. It
+      // only ever lowers the requested torque (down to zero), whichever driver asked for it, and it acts on
+      // a wheel that has stopped (locked) too, so the road can spin it back up. Standstill, reverse and
+      // Simulation keep the plain pedal torque.
+      const absOn = ABS && brakeT > 0 && !!inContact && t.fz > 50 && vc > ABS_MIN_SPEED && t.omega >= 0;
       // Implicit step for the spin rate, with the tyre force linearised around the current slip
       // (stable at 120 Hz even near standstill, where the tyre is very stiff relative to the wheel).
       this.prevOmega[i] = t.omega;
@@ -406,24 +421,25 @@ export class Car {
         const f0 = t.fz * muX(k0), df = Math.max(0, (t.fz * muXSlope(k0) * R) / den);
         const stiff = 1 + (h * df * R) / I;
         const spinWith = (brakeSigned: number) => om + (h * (drive + brakeSigned - f0 * R)) / I / stiff;
+        const brakeLim = absOn ? THREE.MathUtils.clamp(drive - f0 * R - (((vc - ABS_SLIP * den) / R - om) * I * stiff) / h, 0, brakeT) : brakeT;
         const dir = om > 1e-6 ? 1 : om < -1e-6 ? -1 : 0;
         let omega: number, brakeUsed: number;
-        const rolling = dir !== 0 ? spinWith(-dir * brakeT) : 0;
-        if (dir !== 0 && Math.sign(rolling) === dir) (omega = rolling), (brakeUsed = -dir * brakeT);
+        const rolling = dir !== 0 ? spinWith(-dir * brakeLim) : 0;
+        if (dir !== 0 && Math.sign(rolling) === dir) (omega = rolling), (brakeUsed = -dir * brakeLim);
         else {
           // Try holding the wheel at zero: the brake torque that needs, with the road force of a locked tyre.
           const fLock = t.fz * muX(-vc / den);
           const hold = (-I * om) / h - drive + fLock * R;
-          if (Math.abs(hold) <= brakeT) (omega = 0), (brakeUsed = hold);
+          if (Math.abs(hold) <= brakeLim) (omega = 0), (brakeUsed = hold);
           else {
             // The brake can't hold it: it turns the way the net torque pushes, with the brake against it.
             const push = Math.sign(drive - fLock * R + (I * om) / h) || 1;
-            brakeUsed = -push * brakeT;
+            brakeUsed = -push * brakeLim;
             omega = spinWith(brakeUsed);
           }
         }
         // The road force this solve implies (from the wheel's torque balance).
-        return { omega, brakeUsed, f0, fRoad: (drive + brakeUsed - ((omega - om) * I) / h) / R };
+        return { omega, brakeUsed, brakeLim, f0, fRoad: (drive + brakeUsed - ((omega - om) * I) / h) / R };
       };
       // Simulation (EM #20953): the step is solved in SUBSTEPS implicit sub-steps (car velocity held for
       // the physics step), and the force sent is their average. One 1/120 s linearisation could swing
@@ -447,6 +463,9 @@ export class Car {
         t.fxSolve = impulse / SUBSTEPS; // average road force over the step
       }
       t.torque = drive + brakeUsed;
+      t.absActive = absOn && first.brakeLim < brakeT;
+      t.brakeRequested = brakeT;
+      t.brakeApplied = Math.abs(brakeUsed);
       t.omega = omega;
       t.vc = vc; // rolling speed and slip denominator for this step, reused after reconciliation
       t.den = den;

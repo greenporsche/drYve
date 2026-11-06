@@ -32,6 +32,9 @@ export interface CarConfig {
   // budget x its load, by setting Rapier's per-wheel clamp each step from the lengthwise force in use.
   // null = Rapier's own clamp with the fixed frictionSlip above (Accessible's approximation).
   tyreBudget: number | null;
+  // ABS (S1.15, PO #21094): each wheel's brake torque is reduced, never increased, so a braked wheel
+  // rolling on the road stays near the tyre's slip peak instead of locking (see Car.updateTyres).
+  abs: boolean;
   sideGripSpinning: number; // side friction stiffness left on a driven wheel past the slip peak
   revHeadroom: number; // rev-limit stand-in: spin limit = headroom x road spin + base
   revBase: number; // rad/s
@@ -61,6 +64,7 @@ const ACCESSIBLE: CarConfig = {
   slipC: 1.65,
   frictionSlip: { front: 4.3, rear: 5.6 },
   tyreBudget: null,
+  abs: true,
   sideGripSpinning: 0.35,
   revHeadroom: 1.15,
   revBase: 30,
@@ -100,6 +104,7 @@ const SIMULATION: CarConfig = {
   muPeak: MU,
   frictionSlip: { front: MU, rear: MU },
   tyreBudget: MU,
+  abs: false, // unassisted, as in F1
   steerCap: null,
   // No synthetic kerb kick (EM #20892): the kerbs' raised, ridged collision geometry already reaches the
   // suspension; the extra alternating impulses (Accessible's felt rumble) have no physical reference.

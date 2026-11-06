@@ -12,12 +12,18 @@
 }
 html, body { margin: 0; height: 100%; overflow: hidden; background: #87a9c9; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--text); }
 canvas { display: block; }
-.panel, #help { position: fixed; pointer-events: none; }
+.panel { position: fixed; pointer-events: none; }
 .panel { background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 4px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35); }
 .num { font-variant-numeric: tabular-nums; }
 
 /* Timing panel, top left */
-#timing { left: 16px; top: 16px; width: 260px; padding: 0 0 8px; overflow: hidden; }
+/* Left column (timing, autopilot status, stilts label, controls): one flow, so they stack, never overlap. */
+#side { position: fixed; left: 16px; top: 16px; width: 260px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; pointer-events: none; }
+#side > .panel { position: static; }
+/* The column stops above the instrument bar; an open controls list scrolls inside what is left. */
+#side { max-height: calc(100vh - 166px); }
+#side > #timing, #side > #auto, #side > #height { flex-shrink: 0; }
+#timing { width: 260px; padding: 0 0 8px; overflow: hidden; }
 #timing .row { display: flex; justify-content: space-between; align-items: baseline; padding: 0 12px; }
 #timing .head { background: var(--accent); padding: 6px 12px; font-weight: 800; letter-spacing: 0.04em; font-style: italic; }
 #timing .head #laptime { font-size: 22px; font-style: normal; }
@@ -33,15 +39,22 @@ canvas { display: block; }
 #timing .small { font-size: 12px; color: var(--muted); font-weight: 700; letter-spacing: 0.06em; padding-top: 2px; }
 #timing .small .num { color: var(--text); font-size: 14px; }
 #timing .small .best { color: var(--best); }
-#help { left: 16px; top: 190px; font-size: 12px; color: var(--text); text-shadow: 0 1px 3px #000a; opacity: 0.9; }
+/* Controls: a short hint; the full key list opens from it (keyboard-operable <details>). */
+#help { pointer-events: auto; padding: 6px 10px; font-size: 12px; max-width: 100%; box-sizing: border-box; min-height: 0; overflow-y: auto; flex-shrink: 1; }
+#help summary { cursor: pointer; font-weight: 800; letter-spacing: 0.06em; font-size: 11px; }
+#help summary span { font-weight: 600; letter-spacing: 0; color: var(--muted); margin-left: 6px; font-size: 12px; }
+#help ul { margin: 6px 0 2px; padding: 0; list-style: none; display: grid; gap: 3px; }
+#help kbd { font: inherit; font-weight: 700; padding: 0 4px; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 3px; background: rgba(255, 255, 255, 0.06); }
 
-#auto { left: 50%; top: 16px; transform: translateX(-50%); padding: 6px 14px; font-size: 13px; font-weight: 800; letter-spacing: 0.08em; color: var(--throttle); opacity: 0; transition: opacity 150ms; }
-#auto.on { opacity: 1; }
-#circuit-pick { right: 16px; top: 16px; z-index: 10; pointer-events: auto; /* .panel is click-through; the picker must take clicks */ padding: 6px 10px; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; color: var(--muted); display: flex; align-items: center; gap: 14px; }
+#auto { display: none; flex-direction: column; gap: 2px; padding: 6px 12px; color: var(--throttle); }
+#auto.on { display: flex; }
+#auto b { font-size: 13px; font-weight: 800; letter-spacing: 0.08em; }
+#auto small { font-size: 11px; font-weight: 600; color: var(--muted); }
+#circuit-pick { right: 16px; top: 16px; z-index: 10; pointer-events: auto; /* .panel is click-through; the picker must take clicks */ padding: 6px 10px; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; color: var(--muted); display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 6px 14px; max-width: calc(100vw - 32px); box-sizing: border-box; }
 #circuit-pick label { display: flex; align-items: center; gap: 8px; }
 #circuit-pick select { font: inherit; font-size: 12px; letter-spacing: 0.02em; color: #fff; background: #1a1c22; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 4px; padding: 3px 6px; }
-#height { left: 50%; top: 52px; transform: translateX(-50%); padding: 6px 14px; font-size: 13px; font-weight: 800; letter-spacing: 0.08em; opacity: 0; transition: opacity 150ms; }
-#height.on { opacity: 1; }
+#height { display: none; padding: 6px 12px; font-size: 13px; font-weight: 800; letter-spacing: 0.08em; }
+#height.on { display: block; }
 
 /* Turn label: positioned each frame over the corner it names (main.ts projects the corner). */
 #turn { left: 0; top: 0; transform: translate(-50%, -100%) skewX(-8deg); display: flex; align-items: stretch; overflow: hidden; opacity: 0; transition: opacity 180ms ease-out; }
@@ -70,7 +83,7 @@ canvas { display: block; }
 #wheel { width: 96px; height: 62px; transform-origin: 50% 50%; }
 #steer-deg { color: var(--text); font-size: 12px; }
 
-.strip { flex: 1; justify-content: center; min-width: 0; }
+.strip { flex: 1; justify-content: center; min-width: 0; overflow: hidden; }
 
 .susp { flex-direction: column; justify-content: center; gap: 2px; font-size: 10px; font-weight: 700; color: var(--muted); }
 .susp .bars { display: flex; gap: 5px; }
@@ -87,3 +100,33 @@ canvas { display: block; }
 .map { padding: 0 12px; }
 
 #credit { position: static; padding: 3px 16px 5px; font-size: 10px; color: var(--muted); border-top: 1px solid rgba(255, 255, 255, 0.06); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Narrower windows: the picker stacks beside the left column, then sits above the instrument bar; the
+   bar drops its least essential cells first so nothing overlaps or runs off-screen. */
+@media (max-width: 1100px) { #info { display: none; } }
+@media (max-width: 960px) { #bar .susp { display: none; } }
+@media (max-width: 800px) {
+  #bar .gmeter { display: none; }
+  #circuit-pick { flex-direction: column; align-items: flex-end; }
+}
+@media (max-width: 600px) { #bar .inputs { display: none; } }
+@media (max-width: 540px) {
+  #circuit-pick { top: auto; bottom: 150px; }
+  #side { max-height: calc(100vh - 256px); } /* and above the picker */
+}
+/* The Controls summary always keeps its full height (it stays clickable); when an open list doesn't fit, the
+   list scrolls. Short windows compact the column so timing, status labels and Controls all fit above the bar. */
+#help:not([open]) { flex-shrink: 0; }
+#help[open] { min-height: 64px; }
+@media (max-height: 480px) {
+  #side { gap: 4px; }
+  #auto small { display: none; }
+  #auto, #height { padding: 3px 10px; font-size: 12px; }
+  #auto b { font-size: 12px; }
+  #timing .sectors { padding: 4px 8px 3px; }
+  #help { padding: 4px 10px; }
+  /* while Controls is open on a short window, the timing panel folds to its header row to make room */
+  #side:has(#help[open]) #timing .sectors, #side:has(#help[open]) #timing .small { display: none; }
+  #side:has(#help[open]) #timing { padding-bottom: 0; }
+}
+@media (max-width: 420px) { #bar .strip { display: none; } }

@@ -149,6 +149,14 @@ async function start() {
     if (e.code === 'KeyG' && !e.repeat) guide.mesh.visible = !guide.mesh.visible;
   });
   const autoEl = document.getElementById('auto')!;
+  // Controls list: like the pickers, keys used while it has focus (Space/Enter toggle it, arrows scroll the
+  // open list) stay with it and don't reach the driving keys; after a mouse click it drops focus so the
+  // keys drive again.
+  document.getElementById('help')!.addEventListener('keydown', (e) => e.stopPropagation());
+  const helpSummary = document.querySelector<HTMLElement>('#help summary')!;
+  helpSummary.addEventListener('click', (e) => {
+    if ((e as MouseEvent).detail > 0) helpSummary.blur();
+  });
   const autoLevelEl = document.getElementById('auto-level')!;
   const sim = { auto, car, world, dw, backend, track, lap: lapTracker, camera, frameDt: 0, engine: null as unknown, autopilot, guide, terrainHandle: terrainMesh?.userData.colliderHandle as number | undefined };
   (window as unknown as { __sim: object }).__sim = sim;
