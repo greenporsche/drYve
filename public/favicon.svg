@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Tab icon: the timing panel's red header with a slanted lowercase d, drawn as shapes so it needs no font. -->
+  <rect width="64" height="64" rx="14" fill="#e10600"/>
+  <g fill="#fff" transform="translate(32 32) skewX(-12) translate(-32 -32)">
+    <path fill-rule="evenodd" d="M32 25a14 14 0 1 0 0 28a14 14 0 1 0 0-28zm0 8a6 6 0 1 1 0 12a6 6 0 1 1 0-12z"/>
+    <rect x="38" y="11" width="8" height="42" rx="1"/>
+  </g>
+</svg>
