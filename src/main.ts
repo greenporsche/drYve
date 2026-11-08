@@ -84,6 +84,12 @@ async function start() {
   const dw = new DrivingWorld(drawn, track, terrain, input, { road: roadMat, shoulder: shoulderMat, apron: apronMat, grid: gridMat });
   const { world, car, ribbonMesh, terrainMesh, kerbs, spawn } = dw;
   const lapTracker = dw.lap;
+  // Best lap and sector times are kept in this browser, one record per circuit and driving mode,
+  // so a reload or a reopened tab starts with them (PO #144, EM #147). updateTiming saves changes.
+  const recordKey = `dryve.best.${CIRCUIT_ID}.${CAR.id}`;
+  const saved = JSON.parse(localStorage.getItem(recordKey) ?? 'null');
+  if (saved) (lapTracker.bestLap = saved.lap), (lapTracker.bestSectors = saved.sectors);
+  let savedRecord = JSON.stringify({ lap: lapTracker.bestLap, sectors: lapTracker.bestSectors });
   addRoadMarkings(drawn, track);
   // Aerial photo layer (O): the baked SPW orthophoto on the ground and the road shoulders; the road
   // itself stays grey. Off (and in the V view) the original materials come back, so the photo is not
@@ -304,11 +310,14 @@ async function start() {
     lapTimeEl.textContent = lt.lap > 0 ? formatTime(dw.time - lt.lapStart) : '–';
     lastEl.textContent = lt.lastLap === null ? '–' : `${formatTime(lt.lastLap)}${lt.lastInvalid ? ' ✕' : ''}`;
     bestEl.textContent = formatTime(lt.bestLap);
+    const record = JSON.stringify({ lap: lt.bestLap, sectors: lt.bestSectors });
+    if (record !== savedRecord) localStorage.setItem(recordKey, (savedRecord = record));
     sectorEls.forEach((el, k) => {
-      // This lap's completed sectors; the running one live; later ones show last lap's time.
+      // This lap's completed sectors; the running one live; later ones show last lap's time, or the
+      // saved best before this session has completed a lap.
       const done = lt.lap > 0 && k < lt.sector ? lt.current[k] : null;
       const live = lt.lap > 0 && k === lt.sector;
-      const shown = done ?? (live ? dw.time - lt.sectorStart : lt.last[k]);
+      const shown = done ?? (live ? dw.time - lt.sectorStart : lt.last[k] ?? lt.bestSectors[k]);
       const isBest = shown !== null && !live && shown === lt.bestSectors[k];
       el.className = `sector ${live ? 'live' : shown === null ? '' : isBest ? 'best' : 'slower'}`;
       el.querySelector('span')!.textContent = formatTime(shown);
