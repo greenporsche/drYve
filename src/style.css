@@ -11,6 +11,10 @@
   --brake: #ff3b30;
 }
 html, body { margin: 0; height: 100%; overflow: hidden; background: #87a9c9; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--text); }
+/* Catalog view (S10.1): set before first paint from index.html's head, so these rules live here, not in the
+   lazily loaded catalog.css: the page scrolls, has the catalog's dark background, and the game HUD never shows. */
+html.catalog, html.catalog body { height: auto; min-height: 100%; overflow: auto; background: #0b0d12; }
+html.catalog body > :not(#catalog) { display: none !important; }
 canvas { display: block; }
 .panel { position: fixed; pointer-events: none; }
 .panel { background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 4px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35); }

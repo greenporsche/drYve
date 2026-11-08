@@ -1,0 +1,44 @@
+/* Landing page (S10.1): outlines straight on a dark page (PO #21281: no inset white map boxes). */
+html.catalog {
+  --bg: #0b0d12;
+  --ink: #fff;
+  --muted: rgba(255, 255, 255, 0.64);
+  --ghost: rgba(255, 255, 255, 0.24);
+  --accent: #e10600;
+}
+/* The game's HUD markup stays in the page for drive links; style.css hides it and lets the page scroll. */
+html.catalog body { color: var(--ink); }
+#catalog { max-width: 1180px; margin: 0 auto; padding: 48px 16px 40px; }
+#catalog header { margin-bottom: 36px; }
+#catalog h1 { margin: 0; font-size: clamp(40px, 8vw, 72px); font-weight: 900; font-style: italic; letter-spacing: -0.02em; line-height: 1; }
+#catalog header p { max-width: 38em; margin: 14px 0 0; font-size: 16px; line-height: 1.5; color: var(--muted); }
+#catalog header .count { margin-top: 10px; font-size: 13px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); }
+#catalog .grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 36px 28px; }
+#catalog .card { display: flex; flex-direction: column; gap: 4px; color: inherit; text-decoration: none; border-radius: 6px; padding: 8px; margin: -8px; }
+#catalog .card svg { width: 100%; aspect-ratio: 1; margin-bottom: 10px; }
+#catalog .card path { fill: none; stroke: var(--ghost); stroke-width: 2.5px; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+#catalog .card.open path { stroke: var(--ink); stroke-width: 3px; }
+/* Playable outlines in the three sector colours (S10.2), with labels and the start/finish bar. */
+#catalog .card.open path.sector { stroke-width: 3.5px; }
+#catalog .card .start { stroke: var(--ink); stroke-width: 3px; vector-effect: non-scaling-stroke; }
+#catalog .card text { font: 800 7px system-ui, sans-serif; text-anchor: middle; dominant-baseline: middle; paint-order: stroke; stroke: var(--bg); stroke-width: 2px; }
+#catalog .note { font-size: 11px; color: var(--muted); font-style: italic; }
+#catalog .name { font-size: 15px; font-weight: 800; letter-spacing: 0.02em; text-transform: uppercase; line-height: 1.25; }
+#catalog .where { font-size: 13px; color: var(--muted); }
+#catalog .flag { margin-right: 6px; }
+#catalog .status { margin-top: 2px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+#catalog .card.soon .name { color: var(--muted); }
+#catalog .card.open .status { color: var(--ink); } /* white: #e10600 on the page is 3.9:1, short of 4.5:1 for 12 px text */
+#catalog .card.open .status::after { content: ' →'; }
+#catalog .card.open:hover svg, #catalog .card.open:focus-visible svg { filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.35)); }
+#catalog .card.open:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+#catalog footer { margin-top: 56px; font-size: 12px; line-height: 1.6; color: var(--muted); }
+#catalog footer p { margin: 0; }
+@media (prefers-reduced-motion: no-preference) { #catalog .card svg { transition: filter 120ms ease-out; } }
+/* Phones: two circuits per row, so the list reads as a list. */
+@media (max-width: 540px) {
+  #catalog { padding-top: 32px; }
+  #catalog .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 16px; }
+  #catalog .name { font-size: 13px; }
+  #catalog .where, #catalog .status { font-size: 11px; }
+}

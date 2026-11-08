@@ -113,6 +113,7 @@ const out = {
   controlLine: CONTROL,
   startLine: Math.round(wrapSt(CONTROL + START_AHEAD)),
   sectorLines: [CONTROL, Math.round(wrapSt(CONTROL + L / 3)), Math.round(wrapSt(CONTROL + (2 * L) / 3))],
+  sectorsEstimated: true, // thirds, not official sector points: maps and catalog say so (S10.2)
   calloutLead: 150,
   roadWidth: cfg.roadWidth,
   trackLimit: cfg.trackLimit,

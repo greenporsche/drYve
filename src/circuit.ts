@@ -27,6 +27,7 @@ export let TURNS: Turn[] = [];
 export let CONTROL_LINE = 0; // lap and sector timing
 export let START_LINE = 0; // the grid forms up behind this line
 export let SECTOR_LINES: number[] = []; // start of sectors 1, 2, 3
+export let SECTORS_ESTIMATED = false; // sector lines are estimated thirds, not official points (said on the map credit)
 export let CALLOUT_LEAD = 150; // m before turn-in that a turn's name appears
 export let ROAD_WIDTH = 12; // m (assumption, per circuit)
 export let TRACK_LIMIT = 7.2; // m from the centerline (car centre) before a lap is invalid
@@ -39,6 +40,7 @@ export async function loadCircuit() {
   CONTROL_LINE = c.controlLine;
   START_LINE = c.startLine;
   SECTOR_LINES = c.sectorLines;
+  SECTORS_ESTIMATED = !!c.sectorsEstimated;
   CALLOUT_LEAD = c.calloutLead;
   ROAD_WIDTH = c.roadWidth;
   TRACK_LIMIT = c.trackLimit;

@@ -5,7 +5,7 @@ import { CAR_LIMITS } from './car';
 import { CAR, MODES } from './carconfig';
 import { RacingLineGuide } from './guide';
 import { Minimap } from './minimap';
-import { TURNS, CIRCUITS, CIRCUIT_ID, CIRCUIT_NAME, CIRCUIT_SHORT, asset, loadCircuit } from './circuit';
+import { TURNS, CIRCUITS, CIRCUIT_ID, CIRCUIT_NAME, CIRCUIT_SHORT, SECTOR_LINES, SECTORS_ESTIMATED, asset, loadCircuit } from './circuit';
 import { addStartFinish, roadFrame } from './startline';
 import { formatTime } from './lap';
 import { ElevationStrip } from './elevation';
@@ -265,8 +265,16 @@ async function start() {
     }),
   );
   const projected = new THREE.Vector3();
-  const minimap = new Minimap(document.getElementById('map') as HTMLCanvasElement, track.centerline.points, track.centerline.closed);
+  // The map shows the three timing sectors from the same stations the lap timing uses (S10.2).
+  const minimap = new Minimap(document.getElementById('map') as HTMLCanvasElement, track.centerline.points, track.centerline.closed, {
+    distance: track.centerline.distance,
+    lines: SECTOR_LINES,
+    length: track.centerline.length ?? track.centerline.distance[track.centerline.distance.length - 1],
+    estimated: SECTORS_ESTIMATED,
+  });
   document.getElementById('credit')!.textContent =
+    // An estimated sector split leads the credit so it is never cut off (EM #21297); the map also says so.
+    (SECTORS_ESTIMATED ? 'Sectors: estimated thirds · ' : '') +
     `${track.meta.name} · Elevation: ${track.meta.elevationSource.attribution} (${track.meta.elevationSource.license}) · ` +
     `Track centerline: © OpenStreetMap contributors (ODbL) · Camber: flat, estimated` +
     (ortho ? ` · ${ortho.meta.source.attribution}` : '') +

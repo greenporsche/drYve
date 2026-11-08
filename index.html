@@ -6,6 +6,8 @@
     <title>dryve</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="stylesheet" href="/src/style.css" />
+    <!-- The plain address is the circuit catalog (S10.1): mark it before first paint so the game HUD never flashes. -->
+    <script>if (!new URLSearchParams(location.search).has("track")) document.documentElement.classList.add("catalog");</script>
   </head>
   <body>
     <!-- Left column: timing, then status and controls stacked under it, so nothing overlaps. -->
@@ -84,7 +86,7 @@
       </div>
       <div id="credit"></div>
     </footer>
-    <script type="module" src="/src/main.ts"></script>
+    <script type="module" src="/src/entry.ts"></script>
     <script>if (location.hostname === "dryve.fast") navigator.sendBeacon("/v", JSON.stringify({ host: location.hostname, path: location.pathname + location.search, ref: document.referrer }));</script>
   </body>
 </html>
