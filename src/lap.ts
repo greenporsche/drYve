@@ -20,9 +20,13 @@ export class LapTracker {
   current: (number | null)[] = [null, null, null]; // this lap's sector times
   last: (number | null)[] = [null, null, null]; // previous completed lap's sector times
   lastLap: number | null = null;
-  bestLap: number | null = null;
+  bestLap: number | null = null; // on-screen bests: any valid lap, the autopilot's included
   bestSectors: (number | null)[] = [null, null, null];
+  // The player's own bests, from laps the autopilot did not drive: the ones kept between visits (PO #151).
+  ownBestLap: number | null = null;
+  ownBestSectors: (number | null)[] = [null, null, null];
   invalid = false; // this lap broke track limits: it is timed but not counted as a best
+  assisted = false; // the autopilot drove during this lap: its times can be on-screen bests, not own bests
   lastInvalid = false;
   offTrack = 0; // car centre's distance from the centreline, m
   private pts: Float32Array;
@@ -97,9 +101,11 @@ export class LapTracker {
         this.lastLap = lapTime;
         this.lastInvalid = this.invalid;
         if (!this.invalid && (this.bestLap === null || lapTime < this.bestLap)) this.bestLap = lapTime;
+        if (!this.invalid && !this.assisted && (this.ownBestLap === null || lapTime < this.ownBestLap)) this.ownBestLap = lapTime;
         this.last = this.current;
       }
       this.invalid = false;
+      this.assisted = false;
       this.lap++;
       this.sector = 0;
       this.lapStart = this.sectorStart = t;
@@ -121,6 +127,7 @@ export class LapTracker {
     this.current = [null, null, null];
     this.armed = false;
     this.invalid = false;
+    this.assisted = false;
   }
 
   // On the grid: like a real race, lap 1 is timed from the moment the car moves off the grid
@@ -136,6 +143,8 @@ export class LapTracker {
     this.current[this.sector] = s;
     const b = this.bestSectors[this.sector];
     if (!this.invalid && (b === null || s < b)) this.bestSectors[this.sector] = s;
+    const o = this.ownBestSectors[this.sector];
+    if (!this.invalid && !this.assisted && (o === null || s < o)) this.ownBestSectors[this.sector] = s;
   }
 
   // The turn being approached or driven: from CALLOUT_LEAD metres before turn-in to its exit.

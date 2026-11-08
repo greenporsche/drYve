@@ -84,12 +84,17 @@ async function start() {
   const dw = new DrivingWorld(drawn, track, terrain, input, { road: roadMat, shoulder: shoulderMat, apron: apronMat, grid: gridMat });
   const { world, car, ribbonMesh, terrainMesh, kerbs, spawn } = dw;
   const lapTracker = dw.lap;
-  // Best lap and sector times are kept in this browser, one record per circuit and driving mode,
-  // so a reload or a reopened tab starts with them (PO #144, EM #147). updateTiming saves changes.
+  // The player's own best lap and sector times are kept in this browser, one record per circuit and
+  // driving mode, so a reload or a reopened tab starts with them (PO #144, EM #147). Autopilot laps
+  // can be on-screen bests but are not kept (PO #151). updateTiming saves changes.
   const recordKey = `dryve.best.${CIRCUIT_ID}.${CAR.id}`;
   const saved = JSON.parse(localStorage.getItem(recordKey) ?? 'null');
-  if (saved) (lapTracker.bestLap = saved.lap), (lapTracker.bestSectors = saved.sectors);
-  let savedRecord = JSON.stringify({ lap: lapTracker.bestLap, sectors: lapTracker.bestSectors });
+  if (saved) {
+    lapTracker.bestLap = lapTracker.ownBestLap = saved.lap;
+    lapTracker.bestSectors = [...saved.sectors];
+    lapTracker.ownBestSectors = [...saved.sectors];
+  }
+  let savedRecord = JSON.stringify({ lap: lapTracker.ownBestLap, sectors: lapTracker.ownBestSectors });
   addRoadMarkings(drawn, track);
   // Aerial photo layer (O): the baked SPW orthophoto on the ground and the road shoulders; the road
   // itself stays grey. Off (and in the V view) the original materials come back, so the photo is not
@@ -310,7 +315,7 @@ async function start() {
     lapTimeEl.textContent = lt.lap > 0 ? formatTime(dw.time - lt.lapStart) : '–';
     lastEl.textContent = lt.lastLap === null ? '–' : `${formatTime(lt.lastLap)}${lt.lastInvalid ? ' ✕' : ''}`;
     bestEl.textContent = formatTime(lt.bestLap);
-    const record = JSON.stringify({ lap: lt.bestLap, sectors: lt.bestSectors });
+    const record = JSON.stringify({ lap: lt.ownBestLap, sectors: lt.ownBestSectors });
     if (record !== savedRecord) localStorage.setItem(recordKey, (savedRecord = record));
     sectorEls.forEach((el, k) => {
       // This lap's completed sectors; the running one live; later ones show last lap's time, or the
@@ -348,6 +353,7 @@ async function start() {
     // inputs at each step, through the same throttle/brake/steer path as the keyboard.
     if (paused) acc = 0; // no steps while paused, and none owed on resume
     while (acc >= PHYSICS_DT) {
+      if (auto.on) lapTracker.assisted = true; // an autopilot lap is not kept as the player's best (PO #151)
       autopilot.drive(car, lapTracker, PHYSICS_DT);
       dw.advance();
       acc -= PHYSICS_DT;
