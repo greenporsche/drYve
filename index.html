@@ -27,6 +27,8 @@
     <div id="auto" class="panel" role="status"><b>AUTOPILOT · LEVEL <span id="auto-level">3</span></b><small>1–5 aggression · P or any driving key to take over</small></div>
     <div id="height" class="panel">STILTS VIEW · HEIGHT ×1</div>
     </div>
+    <!-- Short notices: the first-drive hint (S1.22) and shortcut confirmations (S1.23). src/notice.ts fills it. -->
+    <div id="notice" class="panel" role="status"></div>
     <div id="turn" class="panel" aria-live="polite"><b id="turn-n"></b><span id="turn-name"></span></div>
     <!-- Pause menu (S1.21): settings and the key reference live here, not on the HUD. src/menu.ts runs it. -->
     <button id="menu-btn" class="panel" type="button" aria-haspopup="dialog" aria-controls="menu" aria-expanded="false" aria-label="Menu"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12" /></svg><span class="label">Menu</span><kbd>Esc</kbd></button>

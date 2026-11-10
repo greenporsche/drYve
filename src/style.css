@@ -129,6 +129,13 @@ canvas { display: block; }
   #menu .actions > * { flex: 1; justify-content: center; padding: 0 10px; letter-spacing: 0.04em; white-space: nowrap; }
 }
 
+/* Notice (S1.22): one line centred above the instrument bar; click-through, fades in and out. */
+#notice { left: 50%; bottom: 152px; transform: translateX(-50%); max-width: calc(100vw - 32px); box-sizing: border-box; width: max-content; padding: 10px 16px; font-size: 14px; font-weight: 700; line-height: 1.6; text-align: center; opacity: 0; visibility: hidden; }
+#notice.on { opacity: 1; visibility: visible; }
+@media (prefers-reduced-motion: no-preference) { #notice { transition: opacity 400ms ease-out, visibility 0s linear 400ms; } #notice.on { transition: opacity 200ms ease-out; } }
+#notice > span { white-space: nowrap; }
+#notice .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+#notice kbd { font: inherit; font-size: 12px; padding: 1px 6px; margin: 0 2px; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px; background: rgba(255, 255, 255, 0.08); }
 /* Turn label: positioned each frame over the corner it names (main.ts projects the corner). */
 #turn { left: 0; top: 0; transform: translate(-50%, -100%) skewX(-8deg); display: flex; align-items: stretch; overflow: hidden; opacity: 0; transition: opacity 180ms ease-out; }
 #turn.on { opacity: 1; }

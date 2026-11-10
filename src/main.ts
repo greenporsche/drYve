@@ -10,7 +10,9 @@ import { addStartFinish, roadFrame } from './startline';
 import { formatTime } from './lap';
 import { ElevationStrip } from './elevation';
 import { auto, input, releaseKeys } from './input';
-import { setupMenu } from './menu';
+import { setupMenu, type MenuSettings } from './menu';
+import { hideNotice, showNotice } from './notice';
+import { load, save } from './store';
 import { Autopilot } from './autopilot';
 import { Engine } from './engine';
 import { CarSound } from './sound';
@@ -88,7 +90,8 @@ async function start() {
   // driving mode, so a reload or a reopened tab starts with them (PO #144, EM #147). Autopilot laps
   // can be on-screen bests but are not kept (PO #151). updateTiming saves changes.
   const recordKey = `dryve.best.${CIRCUIT_ID}.${CAR.id}`;
-  const saved = JSON.parse(localStorage.getItem(recordKey) ?? 'null');
+  let saved: { lap: number | null; sectors: (number | null)[] } | null = null;
+  try { saved = JSON.parse(load(recordKey) ?? 'null'); } catch { /* unreadable record: start without one */ }
   if (saved) {
     lapTracker.bestLap = lapTracker.ownBestLap = saved.lap;
     lapTracker.bestSectors = [...saved.sectors];
@@ -300,26 +303,48 @@ async function start() {
   let paused = false;
   let pausedAt = 0; // the clock the wheel display and guide animate by stops here while paused
   document.getElementById('menu-circuit')!.textContent = `${CIRCUIT_NAME} · ${CAR.label}`;
+  const getSettings = (): MenuSettings => ({
+    photo: photoOn, trees: treesOn, buildings: buildingsOn, line: guide.mesh.visible, camera: cameraMode,
+    stilts: coaster.group.visible, height: heightK, sound: !sound.muted, level: auto.level,
+  });
+  const setSettings = (s: Partial<MenuSettings>) => {
+    if (s.photo !== undefined) photoOn = s.photo;
+    if (s.trees !== undefined) treesOn = s.trees;
+    if (s.buildings !== undefined) buildingsOn = s.buildings;
+    if (s.line !== undefined) guide.mesh.visible = s.line;
+    if (s.camera !== undefined) cameraMode = s.camera;
+    if (s.stilts !== undefined) setStilts(s.stilts);
+    if (s.height !== undefined) heightK = s.height;
+    if (s.sound !== undefined) sound.setMuted(!s.sound);
+    if (s.level !== undefined) auto.level = s.level;
+    applyLayers();
+    applyHeight();
+  };
+  // Remembered settings (S1.24, PO #21330): view, camera, stilts height, sound and autopilot aggression
+  // are kept in this browser for every circuit and restored here; anything missing or out of range keeps
+  // its default. The elevation view itself is not kept: each drive starts on the road.
+  const SETTINGS_KEY = 'dryve.settings';
+  {
+    let kept: Record<string, unknown> = {};
+    try { kept = JSON.parse(load(SETTINGS_KEY) ?? '{}') ?? {}; } catch { /* unreadable: defaults */ }
+    const restore: Partial<MenuSettings> = {};
+    for (const k of ['photo', 'trees', 'buildings', 'line', 'sound'] as const) if (typeof kept[k] === 'boolean') restore[k] = kept[k] as boolean;
+    const int = (v: unknown, lo: number, hi: number) => (Number.isInteger(v) && (v as number) >= lo && (v as number) <= hi ? (v as number) : undefined);
+    restore.camera = int(kept.camera, 0, CAMERAS.length - 1);
+    restore.height = int(kept.height, 1, 3);
+    restore.level = int(kept.level, 1, 5);
+    setSettings(restore);
+  }
+  const persistSettings = () => {
+    const { stilts: _, ...kept } = getSettings();
+    save(SETTINGS_KEY, JSON.stringify(kept));
+  };
   const menu = setupMenu({
-    get: () => ({
-      photo: photoOn, trees: treesOn, buildings: buildingsOn, line: guide.mesh.visible, camera: cameraMode,
-      stilts: coaster.group.visible, height: heightK, sound: !sound.muted, level: auto.level,
-    }),
-    set: (s) => {
-      if (s.photo !== undefined) photoOn = s.photo;
-      if (s.trees !== undefined) treesOn = s.trees;
-      if (s.buildings !== undefined) buildingsOn = s.buildings;
-      if (s.line !== undefined) guide.mesh.visible = s.line;
-      if (s.camera !== undefined) cameraMode = s.camera;
-      if (s.stilts !== undefined) setStilts(s.stilts);
-      if (s.height !== undefined) heightK = s.height;
-      if (s.sound !== undefined) sound.setMuted(!s.sound);
-      if (s.level !== undefined) auto.level = s.level;
-      applyLayers();
-      applyHeight();
-    },
+    get: getSettings,
+    set: (s) => (setSettings(s), persistSettings()),
     available: { photo: !!ortho, trees: !!trees, buildings: !!buildings },
     onOpenChange: (open) => {
+      if (open) hideNotice();
       paused = open;
       pausedAt = performance.now();
       releaseKeys();
@@ -327,6 +352,40 @@ async function start() {
     },
   });
   Object.defineProperty(sim, 'paused', { get: () => paused });
+  // First drive in this browser (S1.22, PO #21330/#21331): the HUD no longer lists the keys, so a short
+  // notice gives the driving keys and the menu, then fades. Touch screens get the menu button instead.
+  // Shortcut confirmations (S1.23, PO #21330): each settings key says what it just did, briefly, in the
+  // notice line. This listener is registered after the ones that change the state, so it reads the new
+  // value. Keys pressed in the menu never get here (the menu keeps them), and menu changes need no notice.
+  const onOff = (name: string, on: boolean) => `${name} ${on ? 'on' : 'off'}`;
+  const shortcutText: Record<string, () => string> = {
+    KeyO: () => (ortho ? onOff('Aerial photo', photoOn) : 'No aerial photo for this circuit'),
+    KeyT: () => (trees ? onOff('Trees', treesOn) : 'No trees for this circuit'),
+    KeyB: () => (buildings ? onOff('Buildings', buildingsOn) : 'No buildings for this circuit'),
+    KeyG: () => onOff('Racing line', guide.mesh.visible),
+    KeyC: () => `Camera: ${CAMERAS[cameraMode].name}`,
+    KeyV: () => onOff('Elevation view', coaster.group.visible),
+    KeyH: () => (coaster.group.visible ? `Height ×${heightK}` : 'Height works in the elevation view: press V'),
+    KeyM: () => onOff('Sound', !sound.muted),
+    Digit1: () => 'Autopilot aggression 1', Digit2: () => 'Autopilot aggression 2', Digit3: () => 'Autopilot aggression 3',
+    Digit4: () => 'Autopilot aggression 4', Digit5: () => 'Autopilot aggression 5',
+  };
+  window.addEventListener('keydown', (e) => {
+    const text = !e.repeat && shortcutText[e.code];
+    if (text) (showNotice(text(), 1500), persistSettings());
+  });
+  const HINT_KEY = 'dryve.hint.seen';
+  if (!load(HINT_KEY)) {
+    const touch = matchMedia('(hover: none) and (pointer: coarse)').matches;
+    showNotice(
+      touch
+        ? 'Tap <kbd><span aria-hidden="true">☰</span><span class="sr">Menu</span></kbd> for settings'
+        : // a narrow screen wraps the notice between groups, never inside a group of keys (EM #21336)
+          '<span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span> or <span><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd></span> to drive · <span><kbd>Space</kbd> brake</span> · <span><kbd>Esc</kbd> menu</span>',
+      8000,
+    );
+    save(HINT_KEY, '1');
+  }
   let lapResets = 0;
   let frameDt = 1 / 60;
   let last = performance.now();
@@ -340,7 +399,7 @@ async function start() {
     lastEl.textContent = lt.lastLap === null ? '–' : `${formatTime(lt.lastLap)}${lt.lastInvalid ? ' ✕' : ''}`;
     bestEl.textContent = formatTime(lt.bestLap);
     const record = JSON.stringify({ lap: lt.ownBestLap, sectors: lt.ownBestSectors });
-    if (record !== savedRecord) localStorage.setItem(recordKey, (savedRecord = record));
+    if (record !== savedRecord) save(recordKey, (savedRecord = record));
     sectorEls.forEach((el, k) => {
       // This lap's completed sectors; the running one live; later ones show last lap's time, or the
       // saved best before this session has completed a lap.
