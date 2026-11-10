@@ -31,6 +31,16 @@ canvas { display: block; }
 #timing .row { display: flex; justify-content: space-between; align-items: baseline; padding: 0 12px; }
 #timing .head { background: var(--accent); padding: 6px 12px; font-weight: 800; letter-spacing: 0.04em; font-style: italic; }
 #timing .head #laptime { font-size: 22px; font-style: normal; }
+/* Driving-mode badge (S1.25): distinct symbol, colour and word per mode. */
+#timing .mode { padding: 8px 8px 0; }
+.mode-badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px 2px 6px; border: 1px solid; border-radius: 3px; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; line-height: 18px; }
+.mode-badge svg { width: 28px; height: 14px; overflow: visible; }
+.mode-badge .grip { fill: currentColor; }
+.mode-badge .body { fill: none; stroke: currentColor; stroke-width: 1.6; }
+.mode-badge .assist { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+.mode-badge[data-mode='accessible'] { color: #9cc4ff; background: rgba(59, 139, 255, 0.16); border-color: #3b8bff; }
+.mode-badge[data-mode='simulation'] { color: #ff9a92; background: rgba(255, 59, 48, 0.16); border-color: #ff3b30; }
+.mode-badge[data-mode='simulation'] .assist { display: none; }
 #timing .sectors { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 8px 8px 6px; }
 .sector { background: rgba(255, 255, 255, 0.07); border-bottom: 3px solid transparent; padding: 3px 6px; display: flex; flex-direction: column; }
 .sector b { font-size: 10px; color: var(--muted); letter-spacing: 0.08em; }
@@ -152,6 +162,11 @@ canvas { display: block; }
 
 .speed { flex-direction: column; justify-content: center; min-width: 120px; }
 .speed #speed { font-size: 52px; font-weight: 800; line-height: 1; font-style: italic; }
+/* ABS light (S1.26): outlined while available, filled amber while ABS is holding a braked wheel, dashed
+   "ABS OFF" in Simulation (no ABS). Shape and text tell the states apart, not colour alone. */
+.abs { margin-top: 6px; padding: 1px 6px; border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 3px; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; line-height: 14px; color: rgba(255, 255, 255, 0.72); white-space: nowrap; }
+.abs[data-state='active'] { background: #ffb020; border-color: #ffb020; color: #14110a; }
+.abs[data-state='off'] { border-style: dashed; border-color: rgba(255, 255, 255, 0.28); color: var(--muted); }
 
 .inputs { gap: 12px; }
 .pedal { display: flex; flex-direction: column; align-items: center; gap: 4px; }
@@ -193,5 +208,6 @@ canvas { display: block; }
   #auto, #height { padding: 3px 10px; font-size: 12px; }
   #auto b { font-size: 12px; }
   #timing .sectors { padding: 4px 8px 3px; }
+  #timing .mode { padding: 4px 8px 0; }
 }
 @media (max-width: 420px) { #bar .strip { display: none; } }

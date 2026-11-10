@@ -185,6 +185,12 @@ async function start() {
   const originH = track.meta.localOrigin.height;
 
   const speedEl = document.getElementById('speed')!;
+  // ABS light (S1.26, PO #21345/#21348, EM #21349): Accessible has ABS, shown idle, and lit while any
+  // braked wheel is held by it (the car's absActive, at any physics step this frame, held 100 ms so a
+  // brief intervention is seen); Simulation has none and says so.
+  const absEl = document.getElementById('abs')!;
+  if (!CAR.abs) (absEl.dataset.state = 'off'), (absEl.textContent = 'ABS OFF');
+  let absUntil = 0;
   const fpsEl = document.getElementById('fps')!;
   const suspEls = [...document.querySelectorAll<HTMLElement>('.susp i')];
   const strip = new ElevationStrip(document.getElementById('elevation') as HTMLCanvasElement, track);
@@ -198,6 +204,9 @@ async function start() {
   const lastEl = document.getElementById('last')!;
   const bestEl = document.getElementById('best')!;
   const sectorEls = [1, 2, 3].map((k) => document.getElementById(`s${k}`)!);
+  // The driving mode on the timing panel (S1.25, PO #21342/#21345): times and saved bests are per mode.
+  document.getElementById('mode-badge')!.dataset.mode = CAR.id;
+  document.getElementById('mode-word')!.textContent = CAR.label;
   const turnEl = document.getElementById('turn')!;
   const turnNEl = document.getElementById('turn-n')!;
   const turnNameEl = document.getElementById('turn-name')!;
@@ -440,6 +449,7 @@ async function start() {
       if (auto.on) lapTracker.assisted = true; // an autopilot lap is not kept as the player's best (PO #151)
       autopilot.drive(car, lapTracker, PHYSICS_DT);
       dw.advance();
+      if (CAR.abs && car.tyre.some((t) => t.absActive)) absUntil = now + 100;
       acc -= PHYSICS_DT;
     }
     const simTime = dw.time;
@@ -505,6 +515,10 @@ async function start() {
     // Timing advanced once per frame, above, from the physics pose; the drawn (blended) pose is
     // for drawing only, so it can never move the tracker back across a line.
     speedEl.textContent = String(Math.round(Math.abs(car.speed) * 3.6));
+    if (CAR.abs) {
+      const absState = now < absUntil ? 'active' : 'idle';
+      if (absEl.dataset.state !== absState) absEl.dataset.state = absState;
+    }
     // Controls actually applied to the car (keyboard or autopilot), and the front-wheel angle.
     throttleEl.style.height = `${Math.round(car.applied.throttle * 100)}%`;
     brakeEl.style.height = `${Math.round(car.applied.brake * 100)}%`;
