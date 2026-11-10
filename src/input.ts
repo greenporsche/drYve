@@ -13,6 +13,8 @@ window.addEventListener('keydown', (e) => {
 });
 window.addEventListener('keyup', (e) => down.delete(e.code));
 window.addEventListener('blur', () => down.clear());
+// Let go of every key (the pause menu opening or closing): nothing held before carries across it.
+export const releaseKeys = () => down.clear();
 
 // Browser controls: the keyboard, or the autopilot's commands while it is engaged.
 export const input: Controls = {

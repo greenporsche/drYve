@@ -1,7 +1,7 @@
 // Synthesized car sound (Web Audio; no recordings). Engine note from the virtual engine's rpm, an
 // octave below the firing frequency (PO: the straight firing note read as whiny), and a kerb rumble
 // while wheels are on a kerb. No wind/tyre noise (PO: it read as static). Browsers only allow
-// audio after a user gesture, so it starts on the first key press. M mutes.
+// audio after a user gesture, so it starts on the first key press. M (or the menu) mutes.
 const CYLINDERS = 6; // V6: three firing pulses per crankshaft revolution
 const MASTER = 0.35;
 const PITCH = 0.5; // one octave down
@@ -21,14 +21,17 @@ export class CarSound {
 
   constructor() {
     window.addEventListener('keydown', (e) => {
-      if (e.code === 'KeyM' && !e.repeat) {
-        this.muted = !this.muted;
-        if (this.ctx) this.master.gain.setTargetAtTime(this.muted ? 0 : MASTER, this.ctx.currentTime, 0.05);
-      }
+      if (e.code === 'KeyM' && !e.repeat) this.setMuted(!this.muted);
       this.start();
     });
     // A tap or click is a user gesture too (touch screens have no keys), so it can start the sound.
     window.addEventListener('pointerdown', () => this.start());
+  }
+
+  // M and the pause menu's Sound switch.
+  setMuted(muted: boolean) {
+    this.muted = muted;
+    if (this.ctx) this.master.gain.setTargetAtTime(muted ? 0 : MASTER, this.ctx.currentTime, 0.05);
   }
 
   // Esc pause: the whole audio graph stops; a key or tap while paused does not restart it.

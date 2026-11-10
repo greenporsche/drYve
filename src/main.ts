@@ -9,7 +9,8 @@ import { TURNS, CIRCUITS, CIRCUIT_ID, CIRCUIT_NAME, CIRCUIT_SHORT, SECTOR_LINES,
 import { addStartFinish, roadFrame } from './startline';
 import { formatTime } from './lap';
 import { ElevationStrip } from './elevation';
-import { auto, input } from './input';
+import { auto, input, releaseKeys } from './input';
+import { setupMenu } from './menu';
 import { Autopilot } from './autopilot';
 import { Engine } from './engine';
 import { CarSound } from './sound';
@@ -31,7 +32,7 @@ const STEERING_RATIO = 4; // steering-wheel turn per front-wheel angle, for the 
 
 async function start() {
   const [track] = await Promise.all([loadTrack(asset('lap.json')), RAPIER.init(), loadCircuit()]);
-  // Circuit picker: changing it reloads the page with ?track=<id> (only that circuit's assets load).
+  // Circuit picker (in the pause menu): changing it reloads the page with ?track=<id> (only that circuit's assets load).
   document.title = `dryve · ${CIRCUIT_SHORT}`; // the tab names the site and the circuit being driven (EM #20833, PO #21141)
   const picker = document.getElementById('circuit') as HTMLSelectElement;
   for (const c of CIRCUITS) picker.add(new Option(c.label, c.id, false, c.id === CIRCUIT_ID));
@@ -42,10 +43,9 @@ async function start() {
   const reload = (track: string, mode: string) => (location.search = `?track=${track}&mode=${mode}`);
   picker.addEventListener('change', () => reload(picker.value, CAR.id));
   modePicker.addEventListener('change', () => reload(CIRCUIT_ID, modePicker.value));
-  // Keys used on a HUD control stay with it, except Esc, which always pauses (PO #21244).
+  // Keys used on a HUD control stay with it, except Esc, which always opens the menu (PO #21244).
+  // (The pickers sit in the menu, which keeps all its keys to itself.)
   const keepKeys = (e: KeyboardEvent) => { if (e.code !== 'Escape') e.stopPropagation(); };
-  modePicker.addEventListener('keydown', keepKeys);
-  picker.addEventListener('keydown', keepKeys); // don't steer while choosing
 
   const renderer = new THREE.WebGPURenderer({ antialias: true });
   renderer.setPixelRatio(window.devicePixelRatio);
@@ -135,18 +135,21 @@ async function start() {
     heightEl.textContent = `STILTS VIEW · HEIGHT ×${heightK} · H to change`;
     heightEl.classList.toggle('on', coaster.group.visible);
   };
+  const setStilts = (on: boolean) => {
+    coaster.group.visible = on;
+    if (terrainMesh) terrainMesh.visible = !on; // its collider stays, so driving is unchanged
+    // See the whole height range: push the fog back while the view is on.
+    (scene.fog as THREE.Fog).far = on ? 4000 : 1200;
+  };
+  // Scenery and stilts shortcuts; the pause menu changes the same state (see the menu's set below).
   window.addEventListener('keydown', (e) => {
     if (e.repeat) return;
     if (e.code === 'KeyO') photoOn = !photoOn;
     else if (e.code === 'KeyT') treesOn = !treesOn;
     else if (e.code === 'KeyB') buildingsOn = !buildingsOn;
     else if (e.code === 'KeyH' && coaster.group.visible) heightK = (heightK % 3) + 1;
-    else if (e.code === 'KeyV') {
-      coaster.group.visible = !coaster.group.visible;
-      if (terrainMesh) terrainMesh.visible = !coaster.group.visible; // its collider stays, so driving is unchanged
-      // See the whole height range: push the fog back while the view is on.
-      (scene.fog as THREE.Fog).far = coaster.group.visible ? 4000 : 1200;
-    } else return;
+    else if (e.code === 'KeyV') setStilts(!coaster.group.visible);
+    else return;
     applyLayers();
     applyHeight();
   });
@@ -162,14 +165,6 @@ async function start() {
     if (e.code === 'KeyG' && !e.repeat) guide.mesh.visible = !guide.mesh.visible;
   });
   const autoEl = document.getElementById('auto')!;
-  // Controls list: like the pickers, keys used while it has focus (Space/Enter toggle it, arrows scroll the
-  // open list) stay with it and don't reach the driving keys; after a mouse click it drops focus so the
-  // keys drive again.
-  document.getElementById('help')!.addEventListener('keydown', keepKeys);
-  const helpSummary = document.querySelector<HTMLElement>('#help summary')!;
-  helpSummary.addEventListener('click', (e) => {
-    if ((e as MouseEvent).detail > 0) helpSummary.blur();
-  });
   const autoLevelEl = document.getElementById('auto-level')!;
   // Touch screens have no P key: a button starts and stops the autopilot (shown only on touch-first devices).
   // Like the pickers, its keys don't also reach the driving keys; a tap or click drops focus.
@@ -299,16 +294,37 @@ async function start() {
   window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyC' && !e.repeat) cameraMode = (cameraMode + 1) % CAMERAS.length;
   });
-  // Esc pauses and resumes (PO #21244): physics, lap timing, tyre smoke and sound stop; the view stays drawn.
-  const pausedEl = document.getElementById('paused')!;
+  // Pause menu (S1.21; Esc pause, PO #21244): while it is open, physics, lap timing, tyre smoke and
+  // sound stop and the view stays drawn behind it. Its settings go through the same state and helpers
+  // as the shortcut keys; held keys are let go on the way in and out, so none carries across.
   let paused = false;
   let pausedAt = 0; // the clock the wheel display and guide animate by stops here while paused
-  window.addEventListener('keydown', (e) => {
-    if (e.code !== 'Escape' || e.repeat) return;
-    paused = !paused;
-    pausedAt = performance.now();
-    pausedEl.classList.toggle('on', paused);
-    sound.setPaused(paused);
+  document.getElementById('menu-circuit')!.textContent = `${CIRCUIT_NAME} · ${CAR.label}`;
+  const menu = setupMenu({
+    get: () => ({
+      photo: photoOn, trees: treesOn, buildings: buildingsOn, line: guide.mesh.visible, camera: cameraMode,
+      stilts: coaster.group.visible, height: heightK, sound: !sound.muted, level: auto.level,
+    }),
+    set: (s) => {
+      if (s.photo !== undefined) photoOn = s.photo;
+      if (s.trees !== undefined) treesOn = s.trees;
+      if (s.buildings !== undefined) buildingsOn = s.buildings;
+      if (s.line !== undefined) guide.mesh.visible = s.line;
+      if (s.camera !== undefined) cameraMode = s.camera;
+      if (s.stilts !== undefined) setStilts(s.stilts);
+      if (s.height !== undefined) heightK = s.height;
+      if (s.sound !== undefined) sound.setMuted(!s.sound);
+      if (s.level !== undefined) auto.level = s.level;
+      applyLayers();
+      applyHeight();
+    },
+    available: { photo: !!ortho, trees: !!trees, buildings: !!buildings },
+    onOpenChange: (open) => {
+      paused = open;
+      pausedAt = performance.now();
+      releaseKeys();
+      sound.setPaused(open);
+    },
   });
   Object.defineProperty(sim, 'paused', { get: () => paused });
   let lapResets = 0;
@@ -359,6 +375,7 @@ async function start() {
     autoLevelEl.textContent = String(auto.level);
     // One fixed-step simulation loop owns physics time. The autopilot (when engaged) sets its
     // inputs at each step, through the same throttle/brake/steer path as the keyboard.
+    menu.settle(); // the menu may have closed natively (Esc) since the last frame
     if (paused) acc = 0; // no steps while paused, and none owed on resume
     while (acc >= PHYSICS_DT) {
       if (auto.on) lapTracker.assisted = true; // an autopilot lap is not kept as the player's best (PO #151)

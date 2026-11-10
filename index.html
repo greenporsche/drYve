@@ -10,7 +10,7 @@
     <script>if (!new URLSearchParams(location.search).has("track")) document.documentElement.classList.add("catalog");</script>
   </head>
   <body>
-    <!-- Left column: timing, then status and controls stacked under it, so nothing overlaps. -->
+    <!-- Left column: timing, then status labels stacked under it, so nothing overlaps. -->
     <div id="side">
     <section id="timing" class="panel" aria-label="Lap timing">
       <div class="row head"><span id="lap">OUT LAP</span><span id="laptime" class="num">–</span></div>
@@ -26,27 +26,64 @@
     <button id="auto-btn" class="panel" type="button" aria-pressed="false">Start autopilot</button>
     <div id="auto" class="panel" role="status"><b>AUTOPILOT · LEVEL <span id="auto-level">3</span></b><small>1–5 aggression · P or any driving key to take over</small></div>
     <div id="height" class="panel">STILTS VIEW · HEIGHT ×1</div>
-    <details id="help" class="panel">
-      <summary>Controls <span>W A S D or arrows to drive · Space brake · P autopilot</span></summary>
-      <ul>
-        <li><kbd>W</kbd>/<kbd>↑</kbd> throttle</li>
-        <li><kbd>S</kbd>/<kbd>↓</kbd> brake, reverse when stopped</li>
-        <li><kbd>Space</kbd> brake</li>
-        <li><kbd>A</kbd>/<kbd>D</kbd> <kbd>←</kbd>/<kbd>→</kbd> steer</li>
-        <li><kbd>R</kbd> back to the grid</li>
-        <li><kbd>P</kbd> autopilot, <kbd>1</kbd>–<kbd>5</kbd> aggression</li>
-        <li><kbd>C</kbd> camera</li>
-        <li><kbd>V</kbd> elevation view, <kbd>H</kbd> height ×1–3</li>
-        <li><kbd>G</kbd> racing line</li>
-        <li><kbd>O</kbd> aerial photo · <kbd>T</kbd> trees · <kbd>B</kbd> buildings</li>
-        <li><kbd>M</kbd> mute</li>
-        <li><kbd>Esc</kbd> pause</li>
-      </ul>
-    </details>
     </div>
-    <div id="circuit-pick" class="panel"><label>CIRCUIT <select id="circuit" aria-label="Circuit"></select></label><label>MODE <select id="mode" aria-label="Driving mode"></select></label></div>
     <div id="turn" class="panel" aria-live="polite"><b id="turn-n"></b><span id="turn-name"></span></div>
-    <div id="paused" role="status"><div class="panel"><b>PAUSED</b><small>Esc to resume</small></div></div>
+    <!-- Pause menu (S1.21): settings and the key reference live here, not on the HUD. src/menu.ts runs it. -->
+    <button id="menu-btn" class="panel" type="button" aria-haspopup="dialog" aria-controls="menu" aria-expanded="false" aria-label="Menu"><svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12" /></svg><span class="label">Menu</span><kbd>Esc</kbd></button>
+    <dialog id="menu" aria-labelledby="menu-title">
+      <div class="sheet">
+        <header>
+          <div><h2 id="menu-title">Paused</h2><p id="menu-circuit"></p></div>
+          <div class="actions"><a id="all-circuits" href="/">All circuits</a><button id="resume" type="button" autofocus>Resume</button></div>
+        </header>
+        <div class="cols">
+          <section aria-labelledby="settings-title">
+            <h3 id="settings-title">Settings</h3>
+            <fieldset><legend>View</legend>
+              <label class="opt"><span>Aerial photo</span><input type="checkbox" role="switch" id="opt-photo" /></label>
+              <label class="opt"><span>Trees</span><input type="checkbox" role="switch" id="opt-trees" /></label>
+              <label class="opt"><span>Buildings</span><input type="checkbox" role="switch" id="opt-buildings" /></label>
+              <label class="opt"><span>Racing line</span><input type="checkbox" role="switch" id="opt-line" /></label>
+            </fieldset>
+            <fieldset><legend>Camera</legend>
+              <div class="opt" role="radiogroup" aria-labelledby="camera-l"><span id="camera-l">Camera</span><span class="seg"><label><input type="radio" name="camera" value="0" /><span>Chase</span></label><label><input type="radio" name="camera" value="1" /><span>Drone</span></label><label><input type="radio" name="camera" value="2" /><span>Nose</span></label></span></div>
+              <label class="opt"><span>Elevation view</span><input type="checkbox" role="switch" id="opt-stilts" /></label>
+              <div class="opt" role="radiogroup" aria-labelledby="height-l"><span id="height-l">Height</span><span class="seg"><label><input type="radio" name="height" value="1" /><span>×1</span></label><label><input type="radio" name="height" value="2" /><span>×2</span></label><label><input type="radio" name="height" value="3" /><span>×3</span></label></span></div>
+            </fieldset>
+            <fieldset><legend>Driving</legend>
+              <label class="opt"><span>Circuit</span><select id="circuit"></select></label>
+              <label class="opt"><span>Mode</span><select id="mode"></select></label>
+              <div class="opt" role="radiogroup" aria-labelledby="level-l"><span id="level-l">Autopilot aggression</span><span class="seg"><label><input type="radio" name="level" value="1" /><span>1</span></label><label><input type="radio" name="level" value="2" /><span>2</span></label><label><input type="radio" name="level" value="3" /><span>3</span></label><label><input type="radio" name="level" value="4" /><span>4</span></label><label><input type="radio" name="level" value="5" /><span>5</span></label></span></div>
+              <p class="hint">Changing circuit or mode restarts the lap.</p>
+            </fieldset>
+            <fieldset><legend>Sound</legend>
+              <label class="opt"><span>Sound</span><input type="checkbox" role="switch" id="opt-sound" /></label>
+            </fieldset>
+          </section>
+          <section class="keys-ref" aria-labelledby="keys-title">
+            <h3 id="keys-title">Controls</h3>
+            <dl class="keys">
+              <dt><kbd>W</kbd><kbd>↑</kbd></dt><dd>Throttle</dd>
+              <dt><kbd>S</kbd><kbd>↓</kbd></dt><dd>Brake, reverse when stopped</dd>
+              <dt><kbd>Space</kbd></dt><dd>Brake</dd>
+              <dt><kbd>A</kbd><kbd>D</kbd> <kbd>←</kbd><kbd>→</kbd></dt><dd>Steer</dd>
+              <dt><kbd>R</kbd></dt><dd>Back to the grid</dd>
+              <dt><kbd>P</kbd></dt><dd>Autopilot on or off</dd>
+              <dt><kbd>1</kbd>–<kbd>5</kbd></dt><dd>Autopilot aggression</dd>
+              <dt><kbd>C</kbd></dt><dd>Camera</dd>
+              <dt><kbd>V</kbd></dt><dd>Elevation view</dd>
+              <dt><kbd>H</kbd></dt><dd>Height ×1–3 in elevation view</dd>
+              <dt><kbd>G</kbd></dt><dd>Racing line</dd>
+              <dt><kbd>O</kbd></dt><dd>Aerial photo</dd>
+              <dt><kbd>T</kbd></dt><dd>Trees</dd>
+              <dt><kbd>B</kbd></dt><dd>Buildings</dd>
+              <dt><kbd>M</kbd></dt><dd>Sound</dd>
+              <dt><kbd>Esc</kbd></dt><dd>Menu and pause</dd>
+            </dl>
+          </section>
+        </div>
+      </div>
+    </dialog>
 
     <!-- Race-engineer bar: every instrument in one continuous strip along the bottom. -->
     <footer id="bar" aria-label="Instruments">
