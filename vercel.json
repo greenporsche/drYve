@@ -1,4 +1,12 @@
 {
+  "redirects": [
+    {
+      "source": "/:path(.*)",
+      "has": [{ "type": "host", "value": "dryve-chi.vercel.app" }],
+      "destination": "https://dryve.fast/:path",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     { "source": "/v", "destination": "https://hello.siddharthkrishna.com/v" }
   ]

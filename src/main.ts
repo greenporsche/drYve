@@ -205,9 +205,12 @@ async function start() {
   const lastEl = document.getElementById('last')!;
   const bestEl = document.getElementById('best')!;
   const sectorEls = [1, 2, 3].map((k) => document.getElementById(`s${k}`)!);
-  // The driving mode on the timing panel (S1.25, PO #21342/#21345): times and saved bests are per mode.
-  document.getElementById('mode-badge')!.dataset.mode = CAR.id;
-  document.getElementById('mode-word')!.textContent = CAR.label;
+  // The driving mode beside the ABS light (S1.25, S1.28; PO #21342/#21345/#21386): times and saved bests
+  // are per mode. Short word on screen, full name for assistive tech.
+  const modeBadge = document.getElementById('mode-badge')!;
+  modeBadge.dataset.mode = CAR.id;
+  modeBadge.setAttribute('aria-label', `Driving mode: ${CAR.label}`);
+  document.getElementById('mode-word')!.textContent = CAR.id === 'accessible' ? 'ACC' : 'SIM';
   const turnEl = document.getElementById('turn')!;
   const turnNEl = document.getElementById('turn-n')!;
   const turnNameEl = document.getElementById('turn-name')!;

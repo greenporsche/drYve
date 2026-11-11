@@ -14,8 +14,6 @@
     <div id="side">
     <section id="timing" class="panel" aria-label="Lap timing">
       <div class="row head"><span id="lap">OUT LAP</span><span id="laptime" class="num">–</span></div>
-      <!-- Driving mode (S1.25): a wheel symbol, bare for Simulation, with assist arcs for Accessible, plus the word. -->
-      <div class="row mode"><span id="mode-badge" class="mode-badge"><svg viewBox="-17 -8 34 16" aria-hidden="true"><path class="assist" d="M-12 -6a9 9 0 0 0 0 12M-15.5 -4a6 6 0 0 0 0 8M12 -6a9 9 0 0 1 0 12M15.5 -4a6 6 0 0 1 0 8" /><rect class="grip" x="-9" y="-5" width="4" height="10" rx="2" /><rect class="grip" x="5" y="-5" width="4" height="10" rx="2" /><rect class="body" x="-5" y="-4" width="10" height="8" rx="2.5" /></svg><b id="mode-word"></b></span></div>
       <div class="sectors">
         <div class="sector" id="s1"><b>S1</b><span class="num">–</span></div>
         <div class="sector" id="s2"><b>S2</b><span class="num">–</span></div>
@@ -101,7 +99,9 @@
     <!-- Race-engineer bar: every instrument in one continuous strip along the bottom. -->
     <footer id="bar" aria-label="Instruments">
       <div class="cells">
-        <div class="cell speed"><span id="speed" class="num">0</span><small>KM/H</small><span id="abs" class="abs" data-state="idle" title="Anti-lock brakes">ABS</span></div>
+        <!-- Under the speed (S1.28): the driving mode as a compact chip (wheel symbol, bare for Simulation, with
+             assist arcs for Accessible, plus ACC/SIM) beside the ABS light; both are about the assists in use. -->
+        <div class="cell speed"><span id="speed" class="num">0</span><small>KM/H</small><span class="assists"><span id="mode-badge" class="mode-badge" role="img"><svg viewBox="-17 -8 34 16" aria-hidden="true"><path class="assist" d="M-12 -6a9 9 0 0 0 0 12M-15.5 -4a6 6 0 0 0 0 8M12 -6a9 9 0 0 1 0 12M15.5 -4a6 6 0 0 1 0 8" /><rect class="grip" x="-9" y="-5" width="4" height="10" rx="2" /><rect class="grip" x="5" y="-5" width="4" height="10" rx="2" /><rect class="body" x="-5" y="-4" width="10" height="8" rx="2.5" /></svg><b id="mode-word" aria-hidden="true"></b></span><span id="abs" class="abs" data-state="idle" title="Anti-lock brakes">ABS</span></span></div>
         <div class="cell inputs" aria-label="Driver inputs">
           <!-- Pedal order as in the car: brake on the left, throttle on the right. -->
           <div class="pedal" title="Brake"><b><i id="brake"></i></b><small>BRK</small></div>

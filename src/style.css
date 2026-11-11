@@ -31,10 +31,11 @@ canvas { display: block; }
 #timing .row { display: flex; justify-content: space-between; align-items: baseline; padding: 0 12px; }
 #timing .head { background: var(--accent); padding: 6px 12px; font-weight: 800; letter-spacing: 0.04em; font-style: italic; }
 #timing .head #laptime { font-size: 22px; font-style: normal; }
-/* Driving-mode badge (S1.25): distinct symbol, colour and word per mode. */
-#timing .mode { padding: 8px 8px 0; }
-.mode-badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px 2px 6px; border: 1px solid; border-radius: 3px; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; line-height: 18px; }
-.mode-badge svg { width: 28px; height: 14px; overflow: visible; }
+/* Driving-mode chip (S1.25, compacted in S1.28 beside the ABS light): distinct symbol, colour and short word
+   per mode; the full mode name is its accessible name. */
+.assists { display: flex; align-items: center; gap: 4px; margin-top: 6px; }
+.mode-badge { display: inline-flex; align-items: center; gap: 3px; padding: 1px 5px 1px 4px; border: 1px solid; border-radius: 3px; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; line-height: 14px; }
+.mode-badge svg { width: 22px; height: 11px; overflow: visible; }
 .mode-badge .grip { fill: currentColor; }
 .mode-badge .body { fill: none; stroke: currentColor; stroke-width: 1.6; }
 .mode-badge .assist { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
@@ -164,7 +165,7 @@ canvas { display: block; }
 .speed #speed { font-size: 52px; font-weight: 800; line-height: 1; font-style: italic; }
 /* ABS light (S1.26): outlined while available, filled amber while ABS is holding a braked wheel, dashed
    "ABS OFF" in Simulation (no ABS). Shape and text tell the states apart, not colour alone. */
-.abs { margin-top: 6px; padding: 1px 6px; border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 3px; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; line-height: 14px; color: rgba(255, 255, 255, 0.72); white-space: nowrap; }
+.abs { padding: 1px 6px; border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 3px; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; line-height: 14px; color: rgba(255, 255, 255, 0.72); white-space: nowrap; }
 .abs[data-state='active'] { background: #ffb020; border-color: #ffb020; color: #14110a; }
 .abs[data-state='off'] { border-style: dashed; border-color: rgba(255, 255, 255, 0.28); color: var(--muted); }
 
@@ -208,7 +209,6 @@ canvas { display: block; }
   #auto, #height { padding: 3px 10px; font-size: 12px; }
   #auto b { font-size: 12px; }
   #timing .sectors { padding: 4px 8px 3px; }
-  #timing .mode { padding: 4px 8px 0; }
 }
 @media (max-width: 420px) { #bar .strip { display: none; } }
 
@@ -238,14 +238,17 @@ canvas { display: block; }
   #touch-drive { display: block; }
   /* The left column stops above the steering pad. */
   #side { max-height: calc(100vh - 140px); }
-  #bar { left: 50%; right: auto; bottom: 16px; transform: translateX(-50%); border: 1px solid var(--panel-edge); border-top: 2px solid var(--accent); border-radius: 4px; }
-  #bar .cells { height: 80px; }
+  /* Centred in the gap between the steering pad (ends at 16px + min(34vw, 280px)) and the brake (starts 220px
+     from the right), not on the screen, so it clears both thumbs on narrow phones. */
+  #bar { left: calc((16px + min(34vw, 280px) + 100vw - 220px) / 2); right: auto; bottom: 16px; transform: translateX(-50%); border: 1px solid var(--panel-edge); border-top: 2px solid var(--accent); border-radius: 4px; }
+  #bar .cells { height: 96px; }
   #bar .cell:not(.speed):not(.map) { display: none; }
-  #bar .cell.speed { min-width: 0; padding: 0 12px; }
-  .speed #speed { font-size: 32px; }
-  .abs { margin-top: 3px; }
-  #bar .map { padding: 0 8px; }
-  #bar .map canvas { width: 68px !important; height: 68px !important; }
+  #bar .cell.speed { min-width: 0; padding: 0 10px; }
+  .speed #speed { font-size: 28px; }
+  /* Compact panel: the chip and ABS stack, so the panel stays narrow between the thumb controls. */
+  .assists { flex-direction: column; gap: 3px; margin-top: 3px; }
+  #bar .map { padding: 0 6px; }
+  #bar .map canvas { width: 64px !important; height: 64px !important; }
   #credit { display: none; }
   #notice { bottom: 128px; }
 }
