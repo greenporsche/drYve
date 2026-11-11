@@ -11,6 +11,7 @@ import { formatTime } from './lap';
 import { ElevationStrip } from './elevation';
 import { auto, input, releaseKeys } from './input';
 import { setupMenu, type MenuSettings } from './menu';
+import { setupTouchDriving } from './touch';
 import { hideNotice, showNotice } from './notice';
 import { load, save } from './store';
 import { Autopilot } from './autopilot';
@@ -279,7 +280,9 @@ async function start() {
     length: track.centerline.length ?? track.centerline.distance[track.centerline.distance.length - 1],
     estimated: SECTORS_ESTIMATED,
   });
-  document.getElementById('credit')!.textContent =
+  // The full credit also sits in the pause menu, where it wraps instead of being cut off (S1.27: phones in
+  // landscape show no credit line on the HUD).
+  document.getElementById('credit')!.textContent = document.getElementById('menu-credit')!.textContent =
     // An estimated sector split leads the credit so it is never cut off (EM #21297); the map also says so.
     (SECTORS_ESTIMATED ? 'Sectors: estimated thirds · ' : '') +
     `${track.meta.name} · Elevation: ${track.meta.elevationSource.attribution} (${track.meta.elevationSource.license}) · ` +
@@ -348,6 +351,7 @@ async function start() {
     const { stilts: _, ...kept } = getSettings();
     save(SETTINGS_KEY, JSON.stringify(kept));
   };
+  const releaseTouch = setupTouchDriving();
   const menu = setupMenu({
     get: getSettings,
     set: (s) => (setSettings(s), persistSettings()),
@@ -357,12 +361,14 @@ async function start() {
       paused = open;
       pausedAt = performance.now();
       releaseKeys();
+      releaseTouch();
       sound.setPaused(open);
     },
   });
   Object.defineProperty(sim, 'paused', { get: () => paused });
   // First drive in this browser (S1.22, PO #21330/#21331): the HUD no longer lists the keys, so a short
-  // notice gives the driving keys and the menu, then fades. Touch screens get the menu button instead.
+  // notice gives the driving keys and the menu, then fades. Touch screens get the thumb controls (S1.27)
+  // in landscape, and the menu button.
   // Shortcut confirmations (S1.23, PO #21330): each settings key says what it just did, briefly, in the
   // notice line. This listener is registered after the ones that change the state, so it reads the new
   // value. Keys pressed in the menu never get here (the menu keeps them), and menu changes need no notice.
@@ -388,7 +394,9 @@ async function start() {
     const touch = matchMedia('(hover: none) and (pointer: coarse)').matches;
     showNotice(
       touch
-        ? 'Tap <kbd><span aria-hidden="true">☰</span><span class="sr">Menu</span></kbd> for settings'
+        ? matchMedia('(orientation: landscape)').matches
+          ? 'Left thumb steers · right thumb brake and gas · <kbd><span aria-hidden="true">☰</span><span class="sr">Menu</span></kbd> settings'
+          : 'Tap <kbd><span aria-hidden="true">☰</span><span class="sr">Menu</span></kbd> for settings'
         : // a narrow screen wraps the notice between groups, never inside a group of keys (EM #21336)
           '<span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span> or <span><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd></span> to drive · <span><kbd>Space</kbd> brake</span> · <span><kbd>Esc</kbd> menu</span>',
       8000,

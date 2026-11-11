@@ -1,4 +1,5 @@
 import { auto, type Controls } from './controls';
+import { touch } from './touch';
 export { auto };
 
 const down = new Set<string>();
@@ -16,19 +17,22 @@ window.addEventListener('blur', () => down.clear());
 // Let go of every key (the pause menu opening or closing): nothing held before carries across it.
 export const releaseKeys = () => down.clear();
 
-// Browser controls: the keyboard, or the autopilot's commands while it is engaged.
+// Browser controls: the keyboard and the touch controls (S1.27), or the autopilot's commands while it is
+// engaged.
 export const input: Controls = {
-  // 0..1. Keys: 0 or 1; autopilot: any fraction.
-  get throttle() { return auto.on ? auto.throttle : down.has('KeyW') || down.has('ArrowUp') ? 1 : 0; },
-  get brake() { return auto.on ? auto.brake : down.has('KeyS') || down.has('ArrowDown') ? 1 : 0; },
-  // S/Down at (nearly) a standstill reverses; automatic braking never does.
-  get reverseKey() { return !auto.on && (down.has('KeyS') || down.has('ArrowDown')); },
+  // 0..1. Keys and touch pedals: 0 or 1; autopilot: any fraction.
+  get throttle() { return auto.on ? auto.throttle : down.has('KeyW') || down.has('ArrowUp') ? 1 : touch.throttle; },
+  get brake() { return auto.on ? auto.brake : down.has('KeyS') || down.has('ArrowDown') ? 1 : touch.brake; },
+  // S/Down or the touch brake at (nearly) a standstill reverses; automatic braking never does.
+  get reverseKey() { return !auto.on && (down.has('KeyS') || down.has('ArrowDown') || touch.brake > 0); },
   // Space brakes but never reverses, so holding it at a standstill keeps the car still.
   get brakeOnly() { return !auto.on && down.has('Space'); },
-  // Steering request: -1 full right .. +1 full left. Keys give full lock; the autopilot is proportional.
+  // Steering request: -1 full right .. +1 full left. Keys give full lock; the autopilot and the touch pad
+  // are proportional. Keys win while held.
   get steer() {
     if (auto.on) return auto.steer;
-    return (down.has('KeyA') || down.has('ArrowLeft') ? 1 : 0) - (down.has('KeyD') || down.has('ArrowRight') ? 1 : 0);
+    const keys = (down.has('KeyA') || down.has('ArrowLeft') ? 1 : 0) - (down.has('KeyD') || down.has('ArrowRight') ? 1 : 0);
+    return keys || touch.steer;
   },
   get reset() { return down.has('KeyR'); },
 };

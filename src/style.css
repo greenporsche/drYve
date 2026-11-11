@@ -211,3 +211,41 @@ canvas { display: block; }
   #timing .mode { padding: 4px 8px 0; }
 }
 @media (max-width: 420px) { #bar .strip { display: none; } }
+
+/* Pedal and pad backgrounds are near-opaque so their labels keep 4.5:1 over any scene behind them. */
+/* Touch driving (S1.27): phones in landscape get thumb controls, and the instrument bar shrinks to a small
+   centre panel (speed with ABS, and the map) between them; the credit line moves into the menu. In portrait
+   a prompt asks for landscape and the controls stay hidden (the autopilot still works there). */
+#touch-drive, #rotate { display: none; }
+#touch-drive > * { position: fixed; bottom: 16px; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#steer-pad { left: 16px; width: min(34vw, 280px); height: 96px; border-radius: 48px; background: rgba(16, 18, 26, 0.85); border: 1px solid rgba(255, 255, 255, 0.18); }
+#steer-pad .track { position: absolute; left: 24px; right: 24px; top: 50%; height: 2px; background: rgba(255, 255, 255, 0.25); }
+#steer-pad .knob { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 50%; background: rgba(255, 255, 255, 0.22); border: 2px solid rgba(255, 255, 255, 0.7); box-sizing: border-box; }
+#steer-pad.held .knob { background: rgba(255, 255, 255, 0.5); border-color: #fff; }
+#steer-pad small { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; font-size: 9px; font-weight: 800; letter-spacing: 0.14em; color: rgba(255, 255, 255, 0.75); }
+.pedal-btn { display: flex; align-items: center; justify-content: center; border-radius: 12px; border: 2px solid; box-sizing: border-box; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; }
+#brake-pedal { right: 128px; width: 92px; height: 96px; color: #ffb3ad; border-color: var(--brake); background: rgba(60, 12, 12, 0.85); }
+#throttle-pedal { right: 16px; width: 100px; height: 128px; color: #9df0bd; border-color: var(--throttle); background: rgba(8, 48, 24, 0.85); }
+#brake-pedal.held { background: var(--brake); color: #1a0303; } /* dark on red: white measured 3.55:1 (EM #21372) */
+#throttle-pedal.held { background: var(--throttle); color: #06210f; }
+#rotate { left: 50%; bottom: 152px; transform: translateX(-50%); padding: 8px 14px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+#menu-credit { margin: 20px 0 0; font-size: 11px; line-height: 1.5; color: var(--muted); }
+@media (hover: none) and (pointer: coarse) and (orientation: portrait) {
+  #rotate { display: block; }
+  #notice { bottom: 200px; }
+}
+@media (hover: none) and (pointer: coarse) and (orientation: landscape) {
+  #touch-drive { display: block; }
+  /* The left column stops above the steering pad. */
+  #side { max-height: calc(100vh - 140px); }
+  #bar { left: 50%; right: auto; bottom: 16px; transform: translateX(-50%); border: 1px solid var(--panel-edge); border-top: 2px solid var(--accent); border-radius: 4px; }
+  #bar .cells { height: 80px; }
+  #bar .cell:not(.speed):not(.map) { display: none; }
+  #bar .cell.speed { min-width: 0; padding: 0 12px; }
+  .speed #speed { font-size: 32px; }
+  .abs { margin-top: 3px; }
+  #bar .map { padding: 0 8px; }
+  #bar .map canvas { width: 68px !important; height: 68px !important; }
+  #credit { display: none; }
+  #notice { bottom: 128px; }
+}

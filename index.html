@@ -86,8 +86,17 @@
             </dl>
           </section>
         </div>
+        <p id="menu-credit"></p>
       </div>
     </dialog>
+    <!-- Touch driving (S1.27): phones in landscape. Steering pad under the left thumb, pedals under the right.
+         src/touch.ts runs them; they are pointer-only game controls, so hidden from assistive tech. -->
+    <div id="touch-drive" aria-hidden="true">
+      <div id="steer-pad"><span class="track"></span><span class="knob"></span><small>STEER</small></div>
+      <div id="brake-pedal" class="pedal-btn"><b>BRAKE</b></div>
+      <div id="throttle-pedal" class="pedal-btn"><b>GAS</b></div>
+    </div>
+    <div id="rotate" class="panel" role="status">Turn your phone sideways to drive</div>
 
     <!-- Race-engineer bar: every instrument in one continuous strip along the bottom. -->
     <footer id="bar" aria-label="Instruments">
