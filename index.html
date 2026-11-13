@@ -61,9 +61,9 @@
             <fieldset><legend>Ghost car</legend>
               <label class="opt"><span>Ghost car</span><input type="checkbox" role="switch" id="opt-ghost" /></label>
               <div class="opt" role="radiogroup" aria-labelledby="ghost-kind-l"><span id="ghost-kind-l">Ghost</span><span class="seg"><label><input type="radio" name="ghostKind" value="0" /><span>Bot</span></label><label><input type="radio" name="ghostKind" value="1" /><span>My best lap</span></label></span></div>
-              <p class="hint" id="ghost-none" role="status" hidden>No recorded lap yet. Complete a clean flying lap without autopilot.</p>
+              <p class="hint" id="ghost-none" role="status" hidden>No recorded lap yet. Complete a clean lap without autopilot.</p>
               <label class="opt"><span>Bot level</span><span class="range"><input type="range" id="opt-ghost-level" min="1" max="6" step="1" value="3" /><output id="opt-ghost-level-n" for="opt-ghost-level">3</output></span></label>
-              <p class="hint">Bot: a faded autopilot car that laps on its own, starting from the grid. My best lap: your fastest recorded flying lap, replayed with you from the line each lap. It waits at the line while you start from the grid.</p>
+              <p class="hint">Bot: a faded autopilot car that laps on its own, starting from the grid. My best lap: your fastest clean lap without autopilot, from the grid or flying, replayed with you each lap.</p>
             </fieldset>
             <fieldset><legend>Sound</legend>
               <label class="opt"><span>Sound</span><input type="checkbox" role="switch" id="opt-sound" /></label>

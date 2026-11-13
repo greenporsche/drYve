@@ -267,6 +267,15 @@ export class Car {
     });
   }
 
+  // Turn the wheels as if rolling at v m/s for dt s, with no physics: a car drawn from a recording (the
+  // best-lap ghost, F4, PO #229), so its spokes turn and blur at its speed as a driven car's do.
+  spinWheels(v: number, dt: number) {
+    for (const t of this.tyre) {
+      t.omega = v / WHEEL_RADIUS;
+      t.angle = (t.angle + t.omega * dt) % (Math.PI * 2);
+    }
+  }
+
   // Height of the drawn car's origin above the road under it: the average vertical drop from the
   // origin to the bottoms of the four wheels, in the current (drawn) orientation.
   heightAboveRoad() {

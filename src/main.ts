@@ -190,12 +190,18 @@ async function start() {
   // faded car (no physics, no autopilot: its pose comes from the recording each frame).
   const BOT = 0, BEST_LAP = 1;
   let ghostKind = BOT;
-  // The fastest clean flying lap the player has driven here, kept per circuit and driving mode with its
-  // lap time (EM #217). It is compared only with itself, not with the BEST time, so a BEST kept from
-  // before recordings existed never blocks one (PM #216).
+  // The fastest clean lap the player has driven here (from the grid or flying, PO #229), kept per circuit
+  // and driving mode with its lap time (EM #217). It is compared only with itself, not with the BEST
+  // time, so a BEST kept from before recordings existed never blocks one (PM #216).
   const replayKey = `dryve.replay.${CIRCUIT_ID}.${CAR.id}`;
   let bestRun: Recording | null = parseRecording(load(replayKey));
   const recorder = new LapRecorder();
+  const replayPos = new THREE.Vector3(), replayQuat = new THREE.Quaternion();
+  // The replay time and recording at the last frame drawn, for turning the wheels: a replay that starts
+  // again (the ghost turned on, Bot switched to My best lap, a new recording) turns them from rest, never
+  // across a stale interval (EM #232).
+  let replayT = 0;
+  let replayFrom: Recording | null = null;
   const setGhost = (on: boolean) => {
     if (on === ghostOn) return;
     ghostOn = on;
@@ -449,7 +455,7 @@ async function start() {
       !ghostOn ? 'Ghost car off'
       : ghostKind === BOT ? `Ghost car on · level ${ghostCmd.level}`
       : bestRun ? `Ghost car on · your best lap ${formatTime(bestRun.lap)}`
-      : 'Ghost car on · drive a clean flying lap to record your best',
+      : 'Ghost car on · drive a clean lap to record your best',
     Digit1: () => 'Autopilot aggression 1', Digit2: () => 'Autopilot aggression 2', Digit3: () => 'Autopilot aggression 3',
     Digit4: () => 'Autopilot aggression 4', Digit5: () => 'Autopilot aggression 5',
   };
@@ -525,9 +531,10 @@ async function start() {
       if (auto.on) lapTracker.assisted = true; // an autopilot lap is not kept as the player's best (PO #151)
       autopilot.drive(car, lapTracker, PHYSICS_DT);
       // Best-lap recording (F4): whether the lap in progress can be kept is read before the step, since
-      // crossing the line clears the tracker's flags (EM #217): a flying lap the player drove.
+      // crossing the line clears the tracker's flags (EM #217): a lap the player drove, from the grid or
+      // flying (PO #229).
       const finished = lapTracker.completed, lapStart = lapTracker.lapStart, lapNo = lapTracker.lap;
-      const keepable = !lapTracker.assisted && !lapTracker.standing;
+      const keepable = !lapTracker.assisted;
       dw.advance();
       {
         const p = car.body.translation(), q = car.body.rotation();
@@ -588,16 +595,23 @@ async function start() {
       const replay = ghostKind === BEST_LAP ? bestRun : null;
       // The best-lap ghost shows once there is a recording to replay.
       g.group.visible = ghostOn && (ghostKind === BOT || replay !== null);
+      if (!g.group.visible || !replay) replayFrom = null; // not replaying: the next replay starts afresh
       if (g.group.visible) {
-        g.syncVisuals(acc / PHYSICS_DT);
         let station = ghost.dw.lap.station;
         if (replay) {
           // In step with the player's lap clock, at the moment the player's car is drawn (the last step
-          // less one, plus the blend). Before a flying lap it waits at the line; on a slower lap it holds
-          // at the end of its own until the player crosses (PM #216).
-          const flying = lapTracker.lap > 0 && !lapTracker.standing;
-          station = poseAt(replay, flying ? dw.time - PHYSICS_DT + acc - lapTracker.lapStart : 0, g.group.position, g.group.quaternion, lapTracker.length);
+          // less one, plus the blend). Before a timed lap it waits at the start of its recording; on a
+          // slower lap it holds at the end of its own until the player crosses (PM #216).
+          const t = lapTracker.lap > 0 ? dw.time - PHYSICS_DT + acc - lapTracker.lapStart : 0;
+          const at = poseAt(replay, t, replayPos, replayQuat, lapTracker.length);
+          // Its wheels turn at its speed for the replay time gone since the last frame (PO #229): none
+          // while paused, waiting or held.
+          g.spinWheels(at.speed, replayFrom === replay ? Math.min(Math.max(t - replayT, 0), 0.1) : 0);
+          (replayT = t), (replayFrom = replay);
+          station = at.station;
         }
+        g.syncVisuals(acc / PHYSICS_DT);
+        if (replay) (g.group.position.copy(replayPos), g.group.quaternion.copy(replayQuat));
         ghostMark = { x: g.group.position.x, z: g.group.position.z, station, altitude: originH + g.group.position.y - 0.6 };
         g.group.scale.y = 1 / k;
         if (k !== 1) g.group.position.y -= g.heightAboveRoad() * (1 - 1 / k);

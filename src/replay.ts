@@ -1,6 +1,6 @@
 // Best-lap replay (F4, PO #209/#213, EM #215, PM #216): the player's car recorded through each timed
-// lap, and the fastest clean flying lap played back on the ghost car in step with the player's lap
-// clock. A recording is the car's pose against lap time, sampled on the fixed physics step (simulation
+// lap, and the fastest clean lap the player drove (from the grid or flying, PO #229) played back on the
+// ghost car in step with the player's lap clock. A recording is the car's pose against lap time, sampled on the fixed physics step (simulation
 // time, so pause and frame rate don't change it); playback interpolates between samples.
 
 export const SAMPLE_STEPS = 4; // one sample every 4 fixed steps of 1/120 s: 30 a second
@@ -45,8 +45,10 @@ export function parseRecording(json: string | null): Recording | null {
 }
 
 // The recorded pose at lap time t (held at the first and last samples outside the lap): position and
-// rotation written into `pos` and `quat`; returns the lap station there, on a circuit `length` m long.
-export function poseAt(rec: Recording, t: number, pos: { set(x: number, y: number, z: number): unknown }, quat: { set(x: number, y: number, z: number, w: number): unknown }, length: number): number {
+// rotation written into `pos` and `quat`. Returns the lap station there, on a circuit `length` m long,
+// and the speed between the samples it blends (0 where it is held), for turning the wheels.
+const at = { station: 0, speed: 0 };
+export function poseAt(rec: Recording, t: number, pos: { set(x: number, y: number, z: number): unknown }, quat: { set(x: number, y: number, z: number, w: number): unknown }, length: number): Readonly<typeof at> {
   const s = rec.samples, n = s.length / STRIDE;
   let lo = 0, hi = n - 1;
   if (t <= s[0]) hi = 0;
@@ -74,5 +76,7 @@ export function poseAt(rec: Recording, t: number, pos: { set(x: number, y: numbe
   let d = s[b + 8] - s[a + 8];
   if (d > length / 2) d -= length;
   else if (d < -length / 2) d += length;
-  return (((s[a + 8] + d * k) % length) + length) % length;
+  at.station = (((s[a + 8] + d * k) % length) + length) % length;
+  at.speed = span > 0 ? Math.hypot(s[b + 1] - s[a + 1], s[b + 2] - s[a + 2], s[b + 3] - s[a + 3]) / span : 0;
+  return at;
 }
