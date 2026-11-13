@@ -10,4 +10,6 @@ export interface Controls {
 }
 
 // Autopilot commands, written by the autopilot at each fixed step while it is engaged.
-export const auto = { on: false, throttle: 0, brake: 0, steer: 0, level: 3 };
+export interface AutoState { on: boolean; throttle: number; brake: number; steer: number; level: number }
+// The player's car: P and 1-6 drive this one; a ghost car (F3) has its own.
+export const auto: AutoState = { on: false, throttle: 0, brake: 0, steer: 0, level: 3 };

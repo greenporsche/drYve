@@ -599,9 +599,25 @@ export class Car {
       // Each wheel blurs from its own spin: a locked front stays sharp while the rears spin.
       const blur = THREE.MathUtils.smoothstep(Math.abs(this.tyre[i].omega) * frame, BLUR_FROM, BLUR_TO);
       const look = this.wheelLooks[i];
-      look.spokeMat.opacity = 1 - blur;
-      look.blurMat.opacity = 0.6 * blur;
+      look.spokeMat.opacity = (1 - blur) * this.opacity;
+      look.blurMat.opacity = 0.6 * blur * this.opacity;
       look.blur.visible = blur > 0;
     }
+  }
+
+  // Draw the whole car see-through at `opacity` and without a shadow (the ghost car, F3). Every car
+  // builds its own materials, so fading one never changes another.
+  private opacity = 1;
+  fade(opacity: number) {
+    this.opacity = opacity;
+    // Meshes share materials (the bodywork's red, the wheel's spokes), so fade each material once.
+    const mats = new Set<THREE.Material>();
+    this.group.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      mesh.castShadow = false;
+      for (const m of [mesh.material].flat()) mats.add(m);
+    });
+    for (const m of mats) Object.assign(m, { transparent: true, opacity: m.opacity * opacity });
   }
 }

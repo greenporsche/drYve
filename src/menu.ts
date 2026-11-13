@@ -14,6 +14,8 @@ export interface MenuSettings {
   height: number; // 1..3, applies in the stilts view
   sound: boolean;
   level: number; // autopilot aggression 1..5
+  ghost: boolean; // ghost car (F3)
+  ghostLevel: number; // its autopilot level 1..6, separate from the player's
 }
 
 export interface MenuOptions {
@@ -29,8 +31,11 @@ export function setupMenu(o: MenuOptions) {
   const button = document.getElementById('menu-btn') as HTMLButtonElement;
   const check = (id: string) => dialog.querySelector<HTMLInputElement>(`#${id}`)!;
   const radios = (name: string) => [...dialog.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`)];
-  const switches = { photo: check('opt-photo'), trees: check('opt-trees'), buildings: check('opt-buildings'), line: check('opt-line'), stilts: check('opt-stilts'), sound: check('opt-sound') };
+  const switches = { photo: check('opt-photo'), trees: check('opt-trees'), buildings: check('opt-buildings'), line: check('opt-line'), stilts: check('opt-stilts'), sound: check('opt-sound'), ghost: check('opt-ghost') };
   const groups = { camera: radios('camera'), height: radios('height'), level: radios('level') };
+  // The ghost car's level is a slider (PO #178), its value shown beside it.
+  const ghostLevel = check('opt-ghost-level');
+  const ghostLevelOut = dialog.querySelector<HTMLOutputElement>('#opt-ghost-level-n')!;
   for (const k of ['photo', 'trees', 'buildings'] as const) switches[k].disabled = !o.available[k];
 
   const sync = () => {
@@ -39,6 +44,7 @@ export function setupMenu(o: MenuOptions) {
     for (const k of Object.keys(groups) as (keyof typeof groups)[]) for (const r of groups[k]) r.checked = Number(r.value) === s[k];
     // Height stretches only the stilts view, as H does.
     for (const r of groups.height) r.disabled = !s.stilts;
+    ghostLevel.value = ghostLevelOut.value = String(s.ghostLevel);
   };
   for (const k of Object.keys(switches) as (keyof typeof switches)[]) {
     switches[k].addEventListener('change', () => (o.set({ [k]: switches[k].checked }), sync()));
@@ -46,6 +52,7 @@ export function setupMenu(o: MenuOptions) {
   for (const k of Object.keys(groups) as (keyof typeof groups)[]) {
     for (const r of groups[k]) r.addEventListener('change', () => r.checked && (o.set({ [k]: Number(r.value) }), sync()));
   }
+  ghostLevel.addEventListener('input', () => (o.set({ ghostLevel: Number(ghostLevel.value) }), sync()));
 
   // Open/closed as the runtime last heard it. settle() reports a change once, whichever way the panel
   // opened or closed: our own calls settle at once; Esc inside the panel closes it natively, and the

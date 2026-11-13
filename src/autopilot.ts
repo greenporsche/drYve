@@ -1,5 +1,5 @@
 import type { Track } from './surface';
-import { auto } from './controls';
+import { auto, type AutoState } from './controls';
 import type { Car } from './car';
 import type { LapTracker } from './lap';
 import { computeLine, lineFromOffsets, speedProfile, lapTime, type CarLimits } from './raceline';
@@ -59,7 +59,9 @@ export class Autopilot {
   private limits: CarLimits;
   // reference: baked lateral offsets of the reference line (m, + = left) at each centreline sample;
   // without one the line is computed (minimum curvature by gradient steps, REFERENCE_MARGIN).
-  constructor(track: Track, limits: CarLimits, reference?: ArrayLike<number>) {
+  // cmd: the driver state it reads (on, level) and writes (pedals, steering): the player's shared `auto`
+  // by default, or a ghost car's own (F3).
+  constructor(track: Track, limits: CarLimits, reference?: ArrayLike<number>, readonly cmd: AutoState = auto) {
     this.limits = limits;
     this.n = track.centerline.distance.length;
     this.reference = reference ? lineFromOffsets(track, reference) : computeLine(track, 1);
@@ -85,20 +87,20 @@ export class Autopilot {
 
   // The driver's plan (path and speeds) at the current level.
   get plan() {
-    return this.plans[auto.level - 1];
+    return this.plans[this.cmd.level - 1];
   }
 
   // The reference line's planned speeds at the current level's pace (the guide's colours).
   get referenceSpeed() {
-    return this.referenceSpeeds[auto.level - 1];
+    return this.referenceSpeeds[this.cmd.level - 1];
   }
 
   // One fixed step of driving (browser loop and gym alike): read the car and its place on the lap,
-  // write the commands into `auto`. Reseeds when the autopilot engages or the car is placed.
+  // write the commands into `cmd`. Reseeds when the autopilot engages or the car is placed.
   private wasOn = false;
   private seenResets = -1;
   drive(car: Car, lap: LapTracker, dt: number) {
-    if (auto.on) {
+    if (this.cmd.on) {
       const p = car.body.translation(), r = car.body.rotation();
       const yaw = Math.atan2(2 * (r.w * r.y + r.x * r.z), 1 - 2 * (r.y * r.y + r.z * r.z));
       if (!this.wasOn || car.resets !== this.seenResets) this.reseed();
@@ -108,7 +110,7 @@ export class Autopilot {
       const idx = this.limits.limitAware ? lap.locate(p.x, p.z).index : lap.index;
       this.update(idx, p.x, p.z, yaw, Math.abs(car.speed), car.tyre.map((t) => t.slip), dt, Math.hypot(lv.x, lv.z));
     }
-    this.wasOn = auto.on;
+    this.wasOn = this.cmd.on;
     this.seenResets = car.resets;
   }
 
@@ -121,7 +123,7 @@ export class Autopilot {
   // `speed`: true speed (pedals, against path distance); `hSpeed`: horizontal speed, for the Simulation
   // driver's horizontal curvature, yaw-rate and preview terms.
   update(index: number, x: number, z: number, yaw: number, speed: number, slips: number[] = [0, 0, 0, 0], dt = 1 / 120, hSpeed = speed) {
-    if (!auto.on) return;
+    if (!this.cmd.on) return;
     const p = this.plan, n = this.n;
     const wrap = (i: number) => ((i % n) + n) % n;
     // Steering (Stanley-style, at the front axle ~2 m ahead): the line's curvature as feed-forward,
@@ -166,33 +168,33 @@ export class Autopilot {
       const intoRotation = Math.abs(yawRate) < 0.02 || Math.sign(angle) === Math.sign(yawRate);
       if (intoRotation) wheelAngle = Math.max(-most, Math.min(most, angle));
     }
-    auto.steer = Math.max(-1, Math.min(1, wheelAngle / steerLock(speed)));
-    this.debug = { kappa: this.limits.limitAware ? p.kappaArc[i] : p.kappa[i], yawRateTarget, yawRate, side, angleRequested: angle, angleSent: auto.steer * steerLock(speed) };
+    this.cmd.steer = Math.max(-1, Math.min(1, wheelAngle / steerLock(speed)));
+    this.debug = { kappa: this.limits.limitAware ? p.kappaArc[i] : p.kappa[i], yawRateTarget, yawRate, side, angleRequested: angle, angleSent: this.cmd.steer * steerLock(speed) };
     const err = headingErr;
 
     // Target speed a little ahead (the time it takes the pedals and car to respond).
     let target = p.speed[this.limits.limitAware ? ahead(index, speed * 0.25) : wrap(index + Math.round((speed * 0.25) / 2))];
     // Level 6 mistakes: on entering a braking zone, sometimes carry too much speed.
     const braking = target < speed - 1;
-    if (auto.level === MISTAKE_LEVEL && braking && !this.lastBraking) this.mistake = this.mistakesEnabled && Math.random() < MISTAKE_CHANCE ? MISTAKE_OVERSPEED : 1;
+    if (this.cmd.level === MISTAKE_LEVEL && braking && !this.lastBraking) this.mistake = this.mistakesEnabled && Math.random() < MISTAKE_CHANCE ? MISTAKE_OVERSPEED : 1;
     if (!braking && target > speed + 3) this.mistake = 1;
     this.lastBraking = braking;
-    if (auto.level === MISTAKE_LEVEL) target *= this.mistake;
+    if (this.cmd.level === MISTAKE_LEVEL) target *= this.mistake;
 
     // Fractional pedals: proportional to the speed error, never both at once.
     const e = target - speed;
-    auto.throttle = e > 0 ? Math.min(1, e * 1.2 + 0.4) : 0;
-    auto.brake = e < -0.5 ? Math.min(1, -e * 0.6) : 0;
+    this.cmd.throttle = e > 0 ? Math.min(1, e * 1.2 + 0.4) : 0;
+    this.cmd.brake = e < -0.5 ? Math.min(1, -e * 0.6) : 0;
     let holdShare = 0; // Simulation driver: throttle share that cancels drag (maintenance throttle)
     if (this.limits.limitAware) {
       // Brake for the deceleration the plan asks over the next 0.5 s, as a share of what the limits
       // say the car can do at this speed, so the pedal leads the plan instead of lagging the error.
       const L = this.limits, q = (speed / 27.78) ** 2, look = Math.max(4, speed * 0.5);
-      const vAhead = p.speed[ahead(index, look)] * (auto.level === MISTAKE_LEVEL ? this.mistake : 1);
+      const vAhead = p.speed[ahead(index, look)] * (this.cmd.level === MISTAKE_LEVEL ? this.mistake : 1);
       const need = (speed * speed - vAhead * vAhead) / (2 * look) - ((L.drag ?? 0) * speed * speed) / L.mass;
       const can = Math.min(L.brakeMax ?? Infinity, L.brake + L.aeroBrake * q) * 9.81;
-      if (need > 0) auto.brake = Math.max(auto.brake, Math.min(1, need / can));
-      if (auto.brake > 0) auto.throttle = 0;
+      if (need > 0) this.cmd.brake = Math.max(this.cmd.brake, Math.min(1, need / can));
+      if (this.cmd.brake > 0) this.cmd.throttle = 0;
       else {
         // Throttle for the acceleration the plan asks over the same distance (plus drag), as a share of
         // the drive force, and only out of the grip the corner leaves (friction ellipse on the lateral
@@ -208,29 +210,29 @@ export class Autopilot {
         // forward and steps the rear out); that much drive costs only a few % of the rears' side grip.
         const hold = ((L.drag ?? 0) * speed * speed) / L.mass;
         holdShare = Math.min(1, hold / drive);
-        auto.throttle = want <= 0 ? 0 : Math.min(1, Math.min(want, Math.max(tractionLeft, hold)) / drive);
+        this.cmd.throttle = want <= 0 ? 0 : Math.min(1, Math.min(want, Math.max(tractionLeft, hold)) / drive);
       }
     }
     // Pedal modulation on the tyres' slip (the same wheel state the car uses; no hidden assistance):
     // when the rears spin past the driver's tolerance they ease the throttle, when a wheel locks they
     // ease the brake; how far they let it go and how fast they react is the driver's skill.
-    const lv = LEVELS[auto.level - 1];
+    const lv = LEVELS[this.cmd.level - 1];
     const spin = Math.max(slips[2], slips[3]), lock = -Math.min(...slips);
     this.thrCap = Math.max(0, Math.min(1, this.thrCap + dt * lv.react * (spin > lv.slip ? -1 : 0.6)));
     this.brkCap = Math.max(0, Math.min(1, this.brkCap + dt * lv.react * (lock > lv.slip ? -1 : 0.6)));
-    if (auto.brake === 0) this.brkCap = Math.max(this.brkCap, lv.stab); // a new braking zone starts at the driver's first-stab pressure
-    const asked = auto.throttle;
-    auto.throttle = Math.min(auto.throttle, this.thrCap);
-    auto.brake = Math.min(auto.brake, this.brkCap);
+    if (this.cmd.brake === 0) this.brkCap = Math.max(this.brkCap, lv.stab); // a new braking zone starts at the driver's first-stab pressure
+    const asked = this.cmd.throttle;
+    this.cmd.throttle = Math.min(this.cmd.throttle, this.thrCap);
+    this.cmd.brake = Math.min(this.cmd.brake, this.brkCap);
     // Simulation driver at the limit: rear slip near the tyre's peak doesn't make them lift below the
     // throttle that holds speed against drag (a lift there steps the rear out); only clear wheelspin
     // (beyond twice their tolerance) does.
-    if (this.limits.limitAware && auto.brake === 0 && spin < 2 * lv.slip) auto.throttle = Math.max(auto.throttle, Math.min(asked, holdShare));
+    if (this.limits.limitAware && this.cmd.brake === 0 && spin < 2 * lv.slip) this.cmd.throttle = Math.max(this.cmd.throttle, Math.min(asked, holdShare));
     // At or near full steering lock, feed the throttle in (as a driver does on a slow exit) so the
     // rear tyres keep grip for turning instead of sliding wide.
-    const lockUse = Math.abs(auto.steer);
-    if (lockUse > 0.8) auto.throttle = Math.min(auto.throttle, 1 - 2.5 * (lockUse - 0.8));
+    const lockUse = Math.abs(this.cmd.steer);
+    if (lockUse > 0.8) this.cmd.throttle = Math.min(this.cmd.throttle, 1 - 2.5 * (lockUse - 0.8));
     // Far off line at speed: ease off rather than accelerating the wrong way.
-    if (Math.abs(err) > 0.5 && speed > 15) auto.throttle = Math.min(auto.throttle, 0.3);
+    if (Math.abs(err) > 0.5 && speed > 15) this.cmd.throttle = Math.min(this.cmd.throttle, 0.3);
   }
 }

@@ -10,6 +10,7 @@ import { addStartFinish, roadFrame } from './startline';
 import { formatTime } from './lap';
 import { ElevationStrip } from './elevation';
 import { auto, input, releaseKeys } from './input';
+import type { AutoState, Controls } from './controls';
 import { setupMenu, type MenuSettings } from './menu';
 import { setupTouchDriving } from './touch';
 import { hideNotice, showNotice } from './notice';
@@ -168,6 +169,37 @@ async function start() {
   window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyG' && !e.repeat) guide.mesh.visible = !guide.mesh.visible;
   });
+  // Ghost car (F3, PO #178): a faded autopilot car to race against. It has its own driving world, so
+  // it never touches the player's car, and its own autopilot state, so its level (1-6, set in the pause
+  // menu) is separate from the player's P and 1-6 (EM #181, #187). It laps without stopping; R puts it
+  // back on the grid with the player's car (PO #182). N or the menu turns it on, always from the grid,
+  // and off. Built on first use: its world copies the colliders, and its autopilot reuses the same line.
+  const ghostCmd: AutoState = { on: true, throttle: 0, brake: 0, steer: 0, level: 3 };
+  const ghostControls: Controls = {
+    get throttle() { return ghostCmd.throttle; },
+    get brake() { return ghostCmd.brake; },
+    get steer() { return ghostCmd.steer; },
+    reverseKey: false,
+    brakeOnly: false,
+    get reset() { return input.reset; },
+  };
+  let ghost: { dw: DrivingWorld; autopilot: Autopilot } | null = null;
+  let ghostOn = false;
+  const setGhost = (on: boolean) => {
+    if (on === ghostOn) return;
+    ghostOn = on;
+    if (on && !ghost) {
+      // Its surfaces go into a group that is never drawn; only its car joins the scene.
+      const gdw = new DrivingWorld(new THREE.Group(), track, terrain, ghostControls);
+      gdw.car.fade(0.35);
+      drawn.add(gdw.car.group);
+      ghost = { dw: gdw, autopilot: new Autopilot(track, CAR_LIMITS, reference ?? autopilot.reference.n, ghostCmd) };
+    } else if (on) ghost!.dw.car.reset();
+    if (ghost) ghost.dw.car.group.visible = on;
+  };
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyN' && !e.repeat) setGhost(!ghostOn);
+  });
   const autoEl = document.getElementById('auto')!;
   const autoLevelEl = document.getElementById('auto-level')!;
   // Touch screens have no P key: a button starts and stops the autopilot (shown only on touch-first devices).
@@ -181,6 +213,8 @@ async function start() {
   let autoShown: boolean | null = null;
   const sim = { auto, car, world, dw, backend, track, lap: lapTracker, camera, frameDt: 0, engine: null as unknown, autopilot, guide, terrainHandle: terrainMesh?.userData.colliderHandle as number | undefined };
   (window as unknown as { __sim: object }).__sim = sim;
+  Object.assign(sim, { setGhost, ghostCmd });
+  Object.defineProperty(sim, 'ghost', { get: () => (ghostOn ? ghost : null) });
 
   const lowestY = Math.min(...track.centerline.points.filter((_, i) => i % 3 === 1));
   const originH = track.meta.localOrigin.height;
@@ -321,6 +355,7 @@ async function start() {
   const getSettings = (): MenuSettings => ({
     photo: photoOn, trees: treesOn, buildings: buildingsOn, line: guide.mesh.visible, camera: cameraMode,
     stilts: coaster.group.visible, height: heightK, sound: !sound.muted, level: auto.level,
+    ghost: ghostOn, ghostLevel: ghostCmd.level,
   });
   const setSettings = (s: Partial<MenuSettings>) => {
     if (s.photo !== undefined) photoOn = s.photo;
@@ -332,12 +367,15 @@ async function start() {
     if (s.height !== undefined) heightK = s.height;
     if (s.sound !== undefined) sound.setMuted(!s.sound);
     if (s.level !== undefined) auto.level = s.level;
+    if (s.ghost !== undefined) setGhost(s.ghost);
+    if (s.ghostLevel !== undefined) ghostCmd.level = s.ghostLevel;
     applyLayers();
     applyHeight();
   };
   // Remembered settings (S1.24, PO #21330): view, camera, stilts height, sound and autopilot aggression
   // are kept in this browser for every circuit and restored here; anything missing or out of range keeps
-  // its default. The elevation view itself is not kept: each drive starts on the road.
+  // its default. The elevation view itself is not kept: each drive starts on the road. Nor is the ghost
+  // car (F3): each drive starts without one, but its level is kept.
   const SETTINGS_KEY = 'dryve.settings';
   {
     let kept: Record<string, unknown> = {};
@@ -348,10 +386,11 @@ async function start() {
     restore.camera = int(kept.camera, 0, CAMERAS.length - 1);
     restore.height = int(kept.height, 1, 3);
     restore.level = int(kept.level, 1, 5);
+    restore.ghostLevel = int(kept.ghostLevel, 1, 6);
     setSettings(restore);
   }
   const persistSettings = () => {
-    const { stilts: _, ...kept } = getSettings();
+    const { stilts: _, ghost: __, ...kept } = getSettings();
     save(SETTINGS_KEY, JSON.stringify(kept));
   };
   const releaseTouch = setupTouchDriving();
@@ -385,6 +424,7 @@ async function start() {
     KeyV: () => onOff('Elevation view', coaster.group.visible),
     KeyH: () => (coaster.group.visible ? `Height ×${heightK}` : 'Height works in the elevation view: press V'),
     KeyM: () => onOff('Sound', !sound.muted),
+    KeyN: () => (ghostOn ? `Ghost car on · level ${ghostCmd.level}` : 'Ghost car off'),
     Digit1: () => 'Autopilot aggression 1', Digit2: () => 'Autopilot aggression 2', Digit3: () => 'Autopilot aggression 3',
     Digit4: () => 'Autopilot aggression 4', Digit5: () => 'Autopilot aggression 5',
   };
@@ -460,6 +500,10 @@ async function start() {
       if (auto.on) lapTracker.assisted = true; // an autopilot lap is not kept as the player's best (PO #151)
       autopilot.drive(car, lapTracker, PHYSICS_DT);
       dw.advance();
+      if (ghost && ghostOn) {
+        ghost.autopilot.drive(ghost.dw.car, ghost.dw.lap, PHYSICS_DT);
+        ghost.dw.advance();
+      }
       if (CAR.abs && car.tyre.some((t) => t.absActive)) absUntil = now + 100;
       acc -= PHYSICS_DT;
     }
@@ -493,6 +537,12 @@ async function start() {
     const k = drawn.scale.y;
     car.group.scale.y = 1 / k;
     if (k !== 1) car.group.position.y -= car.heightAboveRoad() * (1 - 1 / k);
+    if (ghost && ghostOn) {
+      const g = ghost.dw.car;
+      g.syncVisuals(acc / PHYSICS_DT);
+      g.group.scale.y = 1 / k;
+      if (k !== 1) g.group.position.y -= g.heightAboveRoad() * (1 - 1 / k);
+    }
     drawn.updateMatrixWorld();
     const carAt = car.group.getWorldPosition(drawnCar); // where the car is drawn (stretched heights)
 
