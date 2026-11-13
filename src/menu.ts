@@ -24,6 +24,7 @@ export interface MenuOptions {
   set: (patch: Partial<MenuSettings>) => void;
   // Settings with nothing behind them on this circuit (no orthophoto, no scenery file) are disabled.
   available: { photo: boolean; trees: boolean; buildings: boolean };
+  hasBestLap: () => boolean; // a best lap is recorded on this circuit and mode, for the ghost to replay (F4)
   onOpenChange: (open: boolean) => void;
 }
 
@@ -37,6 +38,7 @@ export function setupMenu(o: MenuOptions) {
   // The ghost car's level is a slider (PO #178), its value shown beside it.
   const ghostLevel = check('opt-ghost-level');
   const ghostLevelOut = dialog.querySelector<HTMLOutputElement>('#opt-ghost-level-n')!;
+  const ghostNone = dialog.querySelector<HTMLElement>('#ghost-none')!;
   for (const k of ['photo', 'trees', 'buildings'] as const) switches[k].disabled = !o.available[k];
 
   const sync = () => {
@@ -48,6 +50,8 @@ export function setupMenu(o: MenuOptions) {
     ghostLevel.value = ghostLevelOut.value = String(s.ghostLevel);
     // The level is the bot's; a replayed lap goes at the pace it was driven.
     ghostLevel.disabled = s.ghostKind !== 0;
+    // My best lap with nothing recorded yet shows no ghost: say how to get one (EM #221).
+    ghostNone.hidden = !(s.ghostKind === 1 && !o.hasBestLap());
   };
   for (const k of Object.keys(switches) as (keyof typeof switches)[]) {
     switches[k].addEventListener('change', () => (o.set({ [k]: switches[k].checked }), sync()));

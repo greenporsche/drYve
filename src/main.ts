@@ -418,6 +418,7 @@ async function start() {
     get: getSettings,
     set: (s) => (setSettings(s), persistSettings()),
     available: { photo: !!ortho, trees: !!trees, buildings: !!buildings },
+    hasBestLap: () => bestRun !== null,
     onOpenChange: (open) => {
       if (open) hideNotice();
       paused = open;
@@ -595,7 +596,7 @@ async function start() {
           // less one, plus the blend). Before a flying lap it waits at the line; on a slower lap it holds
           // at the end of its own until the player crosses (PM #216).
           const flying = lapTracker.lap > 0 && !lapTracker.standing;
-          station = poseAt(replay, flying ? dw.time - PHYSICS_DT + acc - lapTracker.lapStart : 0, g.group.position, g.group.quaternion);
+          station = poseAt(replay, flying ? dw.time - PHYSICS_DT + acc - lapTracker.lapStart : 0, g.group.position, g.group.quaternion, lapTracker.length);
         }
         ghostMark = { x: g.group.position.x, z: g.group.position.z, station, altitude: originH + g.group.position.y - 0.6 };
         g.group.scale.y = 1 / k;

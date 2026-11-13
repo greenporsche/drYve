@@ -45,8 +45,8 @@ export function parseRecording(json: string | null): Recording | null {
 }
 
 // The recorded pose at lap time t (held at the first and last samples outside the lap): position and
-// rotation written into `pos` and `quat`; returns the lap station there.
-export function poseAt(rec: Recording, t: number, pos: { set(x: number, y: number, z: number): unknown }, quat: { set(x: number, y: number, z: number, w: number): unknown; slerpQuaternions?: unknown }): number {
+// rotation written into `pos` and `quat`; returns the lap station there, on a circuit `length` m long.
+export function poseAt(rec: Recording, t: number, pos: { set(x: number, y: number, z: number): unknown }, quat: { set(x: number, y: number, z: number, w: number): unknown }, length: number): number {
   const s = rec.samples, n = s.length / STRIDE;
   let lo = 0, hi = n - 1;
   if (t <= s[0]) hi = 0;
@@ -69,5 +69,10 @@ export function poseAt(rec: Recording, t: number, pos: { set(x: number, y: numbe
   const qz = s[a + 6] + (sign * s[b + 6] - s[a + 6]) * k, qw = s[a + 7] + (sign * s[b + 7] - s[a + 7]) * k;
   const len = Math.hypot(qx, qy, qz, qw) || 1;
   quat.set(qx / len, qy / len, qz / len, qw / len);
-  return mix(8);
+  // Station runs round the circuit and starts again at 0 part way through a lap (on Spa 225 m before
+  // the control line): blend the short way round, as for the rotation (EM #223).
+  let d = s[b + 8] - s[a + 8];
+  if (d > length / 2) d -= length;
+  else if (d < -length / 2) d += length;
+  return (((s[a + 8] + d * k) % length) + length) % length;
 }
