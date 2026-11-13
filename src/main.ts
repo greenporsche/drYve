@@ -11,6 +11,7 @@ import { formatTime } from './lap';
 import { ElevationStrip } from './elevation';
 import { auto, input, releaseKeys } from './input';
 import type { AutoState, Controls } from './controls';
+import { LapRecorder, SAMPLE_STEPS, parseRecording, poseAt, type Recording } from './replay';
 import { setupMenu, type MenuSettings } from './menu';
 import { setupTouchDriving } from './touch';
 import { hideNotice, showNotice } from './notice';
@@ -185,6 +186,16 @@ async function start() {
   };
   let ghost: { dw: DrivingWorld; autopilot: Autopilot } | null = null;
   let ghostOn = false;
+  // Which ghost (F4, PO #209/#213): the bot above, or the player's best recorded lap replayed on the same
+  // faded car (no physics, no autopilot: its pose comes from the recording each frame).
+  const BOT = 0, BEST_LAP = 1;
+  let ghostKind = BOT;
+  // The fastest clean flying lap the player has driven here, kept per circuit and driving mode with its
+  // lap time (EM #217). It is compared only with itself, not with the BEST time, so a BEST kept from
+  // before recordings existed never blocks one (PM #216).
+  const replayKey = `dryve.replay.${CIRCUIT_ID}.${CAR.id}`;
+  let bestRun: Recording | null = parseRecording(load(replayKey));
+  const recorder = new LapRecorder();
   const setGhost = (on: boolean) => {
     if (on === ghostOn) return;
     ghostOn = on;
@@ -194,8 +205,13 @@ async function start() {
       gdw.car.fade(0.35);
       drawn.add(gdw.car.group);
       ghost = { dw: gdw, autopilot: new Autopilot(track, CAR_LIMITS, reference ?? autopilot.reference.n, ghostCmd) };
-    } else if (on) ghost!.dw.car.reset();
-    if (ghost) ghost.dw.car.group.visible = on;
+    } else if (on && ghostKind === BOT) ghost!.dw.car.reset();
+  };
+  // Switching to the bot while the ghost is on starts it from the grid, as turning it on does.
+  const setGhostKind = (kind: number) => {
+    if (kind === ghostKind) return;
+    ghostKind = kind;
+    if (ghostOn && kind === BOT) ghost!.dw.car.reset();
   };
   window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyN' && !e.repeat) setGhost(!ghostOn);
@@ -213,8 +229,10 @@ async function start() {
   let autoShown: boolean | null = null;
   const sim = { auto, car, world, dw, backend, track, lap: lapTracker, camera, frameDt: 0, engine: null as unknown, autopilot, guide, terrainHandle: terrainMesh?.userData.colliderHandle as number | undefined };
   (window as unknown as { __sim: object }).__sim = sim;
-  Object.assign(sim, { setGhost, ghostCmd });
+  Object.assign(sim, { setGhost, setGhostKind, ghostCmd });
   Object.defineProperty(sim, 'ghost', { get: () => (ghostOn ? ghost : null) });
+  Object.defineProperty(sim, 'ghostKind', { get: () => ghostKind });
+  Object.defineProperty(sim, 'bestRun', { get: () => bestRun });
 
   const lowestY = Math.min(...track.centerline.points.filter((_, i) => i % 3 === 1));
   const originH = track.meta.localOrigin.height;
@@ -355,7 +373,7 @@ async function start() {
   const getSettings = (): MenuSettings => ({
     photo: photoOn, trees: treesOn, buildings: buildingsOn, line: guide.mesh.visible, camera: cameraMode,
     stilts: coaster.group.visible, height: heightK, sound: !sound.muted, level: auto.level,
-    ghost: ghostOn, ghostLevel: ghostCmd.level,
+    ghost: ghostOn, ghostLevel: ghostCmd.level, ghostKind,
   });
   const setSettings = (s: Partial<MenuSettings>) => {
     if (s.photo !== undefined) photoOn = s.photo;
@@ -369,13 +387,14 @@ async function start() {
     if (s.level !== undefined) auto.level = s.level;
     if (s.ghost !== undefined) setGhost(s.ghost);
     if (s.ghostLevel !== undefined) ghostCmd.level = s.ghostLevel;
+    if (s.ghostKind !== undefined) setGhostKind(s.ghostKind);
     applyLayers();
     applyHeight();
   };
   // Remembered settings (S1.24, PO #21330): view, camera, stilts height, sound and autopilot aggression
   // are kept in this browser for every circuit and restored here; anything missing or out of range keeps
   // its default. The elevation view itself is not kept: each drive starts on the road. Nor is the ghost
-  // car (F3): each drive starts without one, but its level is kept.
+  // car (F3): each drive starts without one, but its level and kind (bot or best lap, F4) are kept.
   const SETTINGS_KEY = 'dryve.settings';
   {
     let kept: Record<string, unknown> = {};
@@ -387,6 +406,7 @@ async function start() {
     restore.height = int(kept.height, 1, 3);
     restore.level = int(kept.level, 1, 5);
     restore.ghostLevel = int(kept.ghostLevel, 1, 6);
+    restore.ghostKind = int(kept.ghostKind, BOT, BEST_LAP);
     setSettings(restore);
   }
   const persistSettings = () => {
@@ -424,7 +444,11 @@ async function start() {
     KeyV: () => onOff('Elevation view', coaster.group.visible),
     KeyH: () => (coaster.group.visible ? `Height ×${heightK}` : 'Height works in the elevation view: press V'),
     KeyM: () => onOff('Sound', !sound.muted),
-    KeyN: () => (ghostOn ? `Ghost car on · level ${ghostCmd.level}` : 'Ghost car off'),
+    KeyN: () =>
+      !ghostOn ? 'Ghost car off'
+      : ghostKind === BOT ? `Ghost car on · level ${ghostCmd.level}`
+      : bestRun ? `Ghost car on · your best lap ${formatTime(bestRun.lap)}`
+      : 'Ghost car on · drive a clean flying lap to record your best',
     Digit1: () => 'Autopilot aggression 1', Digit2: () => 'Autopilot aggression 2', Digit3: () => 'Autopilot aggression 3',
     Digit4: () => 'Autopilot aggression 4', Digit5: () => 'Autopilot aggression 5',
   };
@@ -499,8 +523,27 @@ async function start() {
     while (acc >= PHYSICS_DT) {
       if (auto.on) lapTracker.assisted = true; // an autopilot lap is not kept as the player's best (PO #151)
       autopilot.drive(car, lapTracker, PHYSICS_DT);
+      // Best-lap recording (F4): whether the lap in progress can be kept is read before the step, since
+      // crossing the line clears the tracker's flags (EM #217): a flying lap the player drove.
+      const finished = lapTracker.completed, lapStart = lapTracker.lapStart, lapNo = lapTracker.lap;
+      const keepable = !lapTracker.assisted && !lapTracker.standing;
       dw.advance();
-      if (ghost && ghostOn) {
+      {
+        const p = car.body.translation(), q = car.body.rotation();
+        if (lapTracker.completed !== finished) {
+          // A lap finished at this step: its recording ends on the line. Kept if it was clean and is the
+          // fastest recorded here.
+          recorder.sample(lapTracker.lastLap!, p, q, lapTracker.station);
+          if (keepable && !lapTracker.lastInvalid && (!bestRun || lapTracker.lastLap! < bestRun.lap)) {
+            bestRun = recorder.take(lapTracker.lastLap!);
+            save(replayKey, JSON.stringify(bestRun));
+          }
+        }
+        // A new lap (or none, after a reset) starts a new recording, from its first step on the line.
+        if (lapTracker.lapStart !== lapStart || lapTracker.lap !== lapNo) recorder.reset();
+        if (lapTracker.lap > 0 && (recorder.empty || dw.tick % SAMPLE_STEPS === 0)) recorder.sample(dw.time - lapTracker.lapStart, p, q, lapTracker.station);
+      }
+      if (ghost && ghostOn && ghostKind === BOT) {
         ghost.autopilot.drive(ghost.dw.car, ghost.dw.lap, PHYSICS_DT);
         ghost.dw.advance();
       }
@@ -539,12 +582,25 @@ async function start() {
     if (k !== 1) car.group.position.y -= car.heightAboveRoad() * (1 - 1 / k);
     // The ghost's place for the map and the elevation strip (PO #204): true height, as for the player.
     let ghostMark: { x: number; z: number; station: number; altitude: number } | null = null;
-    if (ghost && ghostOn) {
+    if (ghost) {
       const g = ghost.dw.car;
-      g.syncVisuals(acc / PHYSICS_DT);
-      ghostMark = { x: g.group.position.x, z: g.group.position.z, station: ghost.dw.lap.station, altitude: originH + g.group.position.y - 0.6 };
-      g.group.scale.y = 1 / k;
-      if (k !== 1) g.group.position.y -= g.heightAboveRoad() * (1 - 1 / k);
+      const replay = ghostKind === BEST_LAP ? bestRun : null;
+      // The best-lap ghost shows once there is a recording to replay.
+      g.group.visible = ghostOn && (ghostKind === BOT || replay !== null);
+      if (g.group.visible) {
+        g.syncVisuals(acc / PHYSICS_DT);
+        let station = ghost.dw.lap.station;
+        if (replay) {
+          // In step with the player's lap clock, at the moment the player's car is drawn (the last step
+          // less one, plus the blend). Before a flying lap it waits at the line; on a slower lap it holds
+          // at the end of its own until the player crosses (PM #216).
+          const flying = lapTracker.lap > 0 && !lapTracker.standing;
+          station = poseAt(replay, flying ? dw.time - PHYSICS_DT + acc - lapTracker.lapStart : 0, g.group.position, g.group.quaternion);
+        }
+        ghostMark = { x: g.group.position.x, z: g.group.position.z, station, altitude: originH + g.group.position.y - 0.6 };
+        g.group.scale.y = 1 / k;
+        if (k !== 1) g.group.position.y -= g.heightAboveRoad() * (1 - 1 / k);
+      }
     }
     drawn.updateMatrixWorld();
     const carAt = car.group.getWorldPosition(drawnCar); // where the car is drawn (stretched heights)

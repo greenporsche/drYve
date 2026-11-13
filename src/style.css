@@ -129,6 +129,8 @@ canvas { display: block; }
 #menu .range { display: inline-flex; align-items: center; gap: 10px; flex-shrink: 0; }
 #menu .range input { width: 140px; margin: 0; accent-color: var(--accent); cursor: pointer; }
 #menu .range output { min-width: 1ch; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+#menu .range input:disabled { cursor: default; opacity: 0.35; }
+#menu .range input:disabled + output { opacity: 0.4; }
 #menu :is(input, select, button, a):focus-visible, #menu .seg input:focus-visible + span { outline: 2px solid var(--text); outline-offset: 2px; }
 #menu input[role='switch']:checked:focus-visible { outline-color: var(--text); }
 @media (prefers-reduced-motion: no-preference) { #menu input[role='switch']::before { transition: left 120ms ease-out; } }

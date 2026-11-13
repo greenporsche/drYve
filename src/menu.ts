@@ -16,6 +16,7 @@ export interface MenuSettings {
   level: number; // autopilot aggression 1..5
   ghost: boolean; // ghost car (F3)
   ghostLevel: number; // its autopilot level 1..6, separate from the player's
+  ghostKind: number; // 0 the bot, 1 the player's best recorded lap (F4)
 }
 
 export interface MenuOptions {
@@ -32,7 +33,7 @@ export function setupMenu(o: MenuOptions) {
   const check = (id: string) => dialog.querySelector<HTMLInputElement>(`#${id}`)!;
   const radios = (name: string) => [...dialog.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`)];
   const switches = { photo: check('opt-photo'), trees: check('opt-trees'), buildings: check('opt-buildings'), line: check('opt-line'), stilts: check('opt-stilts'), sound: check('opt-sound'), ghost: check('opt-ghost') };
-  const groups = { camera: radios('camera'), height: radios('height'), level: radios('level') };
+  const groups = { camera: radios('camera'), height: radios('height'), level: radios('level'), ghostKind: radios('ghostKind') };
   // The ghost car's level is a slider (PO #178), its value shown beside it.
   const ghostLevel = check('opt-ghost-level');
   const ghostLevelOut = dialog.querySelector<HTMLOutputElement>('#opt-ghost-level-n')!;
@@ -45,6 +46,8 @@ export function setupMenu(o: MenuOptions) {
     // Height stretches only the stilts view, as H does.
     for (const r of groups.height) r.disabled = !s.stilts;
     ghostLevel.value = ghostLevelOut.value = String(s.ghostLevel);
+    // The level is the bot's; a replayed lap goes at the pace it was driven.
+    ghostLevel.disabled = s.ghostKind !== 0;
   };
   for (const k of Object.keys(switches) as (keyof typeof switches)[]) {
     switches[k].addEventListener('change', () => (o.set({ [k]: switches[k].checked }), sync()));

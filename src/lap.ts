@@ -27,6 +27,8 @@ export class LapTracker {
   ownBestSectors: (number | null)[] = [null, null, null];
   invalid = false; // this lap broke track limits: it is timed but not counted as a best
   assisted = false; // the autopilot drove during this lap: its times can be on-screen bests, not own bests
+  standing = false; // this lap began on the grid (lap 1 from a standing start), not at the control line
+  completed = 0; // laps finished through all three sectors (lastLap/lastInvalid describe the latest one)
   lastInvalid = false;
   offTrack = 0; // car centre's distance from the centreline, m
   private pts: Float32Array;
@@ -88,6 +90,7 @@ export class LapTracker {
     if (this.armed) {
       this.armed = false;
       this.lap = 1;
+      this.standing = true;
       this.sector = 0;
       this.lapStart = this.sectorStart = t;
       this.current = [null, null, null];
@@ -100,12 +103,14 @@ export class LapTracker {
         const lapTime = t - this.lapStart;
         this.lastLap = lapTime;
         this.lastInvalid = this.invalid;
+        this.completed++;
         if (!this.invalid && (this.bestLap === null || lapTime < this.bestLap)) this.bestLap = lapTime;
         if (!this.invalid && !this.assisted && (this.ownBestLap === null || lapTime < this.ownBestLap)) this.ownBestLap = lapTime;
         this.last = this.current;
       }
       this.invalid = false;
       this.assisted = false;
+      this.standing = false;
       this.lap++;
       this.sector = 0;
       this.lapStart = this.sectorStart = t;
