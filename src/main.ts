@@ -537,9 +537,12 @@ async function start() {
     const k = drawn.scale.y;
     car.group.scale.y = 1 / k;
     if (k !== 1) car.group.position.y -= car.heightAboveRoad() * (1 - 1 / k);
+    // The ghost's place for the map and the elevation strip (PO #204): true height, as for the player.
+    let ghostMark: { x: number; z: number; station: number; altitude: number } | null = null;
     if (ghost && ghostOn) {
       const g = ghost.dw.car;
       g.syncVisuals(acc / PHYSICS_DT);
+      ghostMark = { x: g.group.position.x, z: g.group.position.z, station: ghost.dw.lap.station, altitude: originH + g.group.position.y - 0.6 };
       g.group.scale.y = 1 / k;
       if (k !== 1) g.group.position.y -= g.heightAboveRoad() * (1 - 1 / k);
     }
@@ -621,10 +624,10 @@ async function start() {
       }
     }
     turnEl.classList.toggle('on', onScreen);
-    strip.draw(lapTracker.station, altitude);
+    strip.draw(lapTracker.station, altitude, ghostMark);
     if (guide.mesh.visible) guide.update(autopilot.referenceSpeed, Math.abs(car.speed), lapTracker.index, animNow / 1000);
     suspEls.forEach((el, i) => (el.style.height = `${Math.round(car.compression(i) * 100)}%`));
-    minimap.draw(car.group.position.x, car.group.position.z);
+    minimap.draw(car.group.position.x, car.group.position.z, ghostMark);
     renderer.render(scene, camera);
   });
 }

@@ -78,7 +78,8 @@ export class Minimap {
     this.start = [sx - ty * 6, sy + tx * 6, sx + ty * 6, sy - tx * 6];
   }
 
-  draw(carX: number, carZ: number) {
+  // ghost: the ghost car's place (F3, PO #204), drawn as a faded dot under the player's.
+  draw(carX: number, carZ: number, ghost?: { x: number; z: number } | null) {
     const c = this.ctx;
     c.clearRect(0, 0, SIZE, SIZE);
     c.lineJoin = c.lineCap = 'round';
@@ -127,10 +128,19 @@ export class Minimap {
       c.fillStyle = 'rgba(255,255,255,0.85)';
       c.fillText(this.caption, SIZE - 2, SIZE - 1);
     }
+    c.lineWidth = 2;
+    if (ghost) {
+      const [gx, gy] = this.toMap(ghost.x, ghost.z);
+      c.fillStyle = 'rgba(225,6,0,0.4)';
+      c.strokeStyle = 'rgba(255,255,255,0.5)';
+      c.beginPath();
+      c.arc(gx, gy, 5, 0, Math.PI * 2);
+      c.fill();
+      c.stroke();
+    }
     const [x, y] = this.toMap(carX, carZ);
     c.fillStyle = '#e10600';
     c.strokeStyle = '#fff';
-    c.lineWidth = 2;
     c.beginPath();
     c.arc(x, y, 5, 0, Math.PI * 2);
     c.fill();

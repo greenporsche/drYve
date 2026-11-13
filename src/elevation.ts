@@ -114,10 +114,20 @@ export class ElevationStrip {
     c.fillText(`${lo} m`, PAD.l - 4, this.y(lo));
   }
 
-  draw(station: number, altitude: number) {
+  // ghost: the ghost car's place (F3, PO #204), drawn as a faded dot under the player's marker.
+  draw(station: number, altitude: number, ghost?: { station: number; altitude: number } | null) {
     const c = this.ctx, W = this.W;
     c.clearRect(0, 0, W, H);
     c.drawImage(this.base, 0, 0, W, H);
+    if (ghost) {
+      c.fillStyle = 'rgba(225,6,0,0.4)';
+      c.strokeStyle = 'rgba(255,255,255,0.5)';
+      c.lineWidth = 2;
+      c.beginPath();
+      c.arc(this.x(ghost.station), this.y(ghost.altitude), 4.5, 0, Math.PI * 2);
+      c.fill();
+      c.stroke();
+    }
     const x = this.x(station), y = this.y(altitude);
     c.strokeStyle = 'rgba(225,6,0,0.8)';
     c.lineWidth = 1;
